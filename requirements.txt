@@ -1,0 +1,4 @@
+qiskit==0.43.2
+networkx
+matplotlib
+numpy
