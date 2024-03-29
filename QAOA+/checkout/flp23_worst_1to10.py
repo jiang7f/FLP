@@ -13,11 +13,9 @@ from scipy.optimize import minimize
 import sys
 sys.path.append('../../')
 import zlibrary.linear_system as ls
-import zlibrary.output_to_file as otf
+import zlibrary.extension as extn
+extn.output_to_file_init("start")
 
-otf.output_to_file()
-
-print('start')
 # dij需求i到设施j的成本
 d = [[1, 2], [1, 2]]
 # n = 2   # 两个设施点
@@ -186,3 +184,4 @@ def test(dep, par):
 for dep in range(1,10):
   print(f'\n\ndep=={dep}')
   test(dep, np.full(dep * 2, np.pi/3))
+extn.output_to_file_reset("flp23-worst finished")
