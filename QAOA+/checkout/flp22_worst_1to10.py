@@ -182,4 +182,4 @@ def test(dep, par):
 for dep in range(1,10):
   print(f'\n\ndep=={dep}')
   test(dep, np.full(dep * 2, np.pi/3))
-extn.output_to_file_reset("flp23-worst finished")
+extn.output_to_file_reset("flp22-worst finished")

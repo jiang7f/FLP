@@ -1,13 +1,16 @@
 import numpy as np
 
-
-def set_print_form(type):
+# 设置numpy输出格式
+def set_print_form(type=0, linewidth=75):
+    if type == 0:
+        np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f}'}, linewidth=linewidth)
     if type == 1:
-        np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f},'})
+        np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f},'}, linewidth=linewidth)
     elif type == 2:
-        np.set_printoptions(formatter={'float': lambda x: f'{x:4.1f},'})
+        np.set_printoptions(formatter={'float': lambda x: f'{x:4.1f},'}, linewidth=linewidth)
 
 
+# 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
     """Convert a matrix to row echelon form."""
     matrix = orimatrix.copy()
@@ -40,11 +43,13 @@ def to_row_echelon_form(orimatrix: np.array):
     return matrix
 
 
+# 去除底部全0行
 def remove_zero_rows(matrix):
     non_zero_rows = np.any(matrix, axis=1)
     return matrix[non_zero_rows]
 
 
+# 返回主元和自由变量索引
 def find_free_variables(matrix):
     num_rows, num_cols = matrix.shape
 
@@ -66,6 +71,7 @@ def find_free_variables(matrix):
     return list(pivot_columns), free_columns
 
 
+# 求基础解析
 def find_basic_solution(matrix):
     matrix = to_row_echelon_form(matrix)
     matrix = remove_zero_rows(matrix)
@@ -82,16 +88,23 @@ def find_basic_solution(matrix):
         basic_solutions.append(solution)
     return np.array(basic_solutions)
 
+
+# 生成FLP问题约束矩阵
+def gnrt_cstt(n, m):
+    total_columns = n + 2 * (m * n)
+    matrix = np.zeros((n * m + m, total_columns))
+    for j in range(n):
+        for i in range(m):
+            matrix[j * m + i, j] = -1
+            matrix[j * m + i, n + i * n + j] = 1
+            matrix[j * m + i, n + n * m + i * n + j] = 1
+            matrix[n * m + i, n + n * i + j] = 1
+    return matrix
 if __name__ == '__main__':
-    constraint = np.array([[-1, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-                     [-1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-                     [0, -1, 0, 1, 0, 0, 0, 1, 0, 0],
-                     [0, -1, 0, 0, 0, 1, 0, 0, 0, 1],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-                     [0, 0, 0, 0, 1, 1, 0, 0, 0, 0]])
-    basic_solution = find_basic_solution(constraint)
-    print(basic_solution)
+    # 设置输出格式 单行最大长度200
+    set_print_form(0, 200)
+    # generate constraint(n = 设施数量, m = 需求数量)
+    cstt = gnrt_cstt(1, 1)
+    print(to_row_echelon_form(cstt))
+    # 求解基础解系
+    print(find_basic_solution(cstt))
