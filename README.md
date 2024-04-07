@@ -5,6 +5,19 @@
 python -m pip install -r requirements.txt
 
 ## 二 项目结构
+
+- QAOA
+  - FLP_choose_part_constraint
+  - FLP_test_influence_of_parameter(penalty_depth_param)
+- QAOA+
+  - checkout
+  - larger
+  - only_XYModel
+- TEST
+- zlibrary
+  - extension.py
+  - linear_system.py
+
 ### 1. QAOA (Quantum Approximate Optimization Algorithm)
 
 1.1 FLP_choose_part_constraint
@@ -46,6 +59,8 @@ python -m pip install -r requirements.txt
 ```cmd
 nohup xxx/python xxx.py &
 ```
+
+标准输出流会输出到当前运行目录的 "nohup.out"
 
 #### 4.2 linear_system.py
 
