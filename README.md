@@ -39,7 +39,19 @@ python -m pip install -r requirements.txt
 
 对于更大规模问题时间复杂度优化 (**在写**)
 
-1. gnrt_v.ipynb: **O(nm)复杂度直接输出线性方程组的解**
+1. 0_gnrt_u.ipynb: **O(nm)复杂度直接输出线性方程组的解**
+2. 1_gnrt_hd_by_u.ipynb  
+
+
+>首先设 $u= \{-1,0,1\}^{\otimes n}$ ,则Hd的非零元行坐标的取法为：
+>1. 将 -1 取 0 ，0 取为 (0,1), 1 取 1 ，逐个相乘得到非零元的位置。
+>例如 $u = (-1,0,-1,0,1)$ 则 非零元位置为 $0\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot0 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot1$
+>即 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
+>2. 将-1 取 1，1取 0 ，0还是取0，1 ，得到对称的位置。
+>同样的例子，也就是将u的-1和1 出现的位置取反，得到 $1\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot1 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot0=\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
+>上面两个例子综合得到非零元行坐标 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$，$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
+>那么列坐标就是$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$，$\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
+>即交换一下两个对称的位置组合。  因此上面的Hd的非零元坐标为(00001,10100),(10100,00001)  ,  (00011,10110),(10110,00011)  等等。
 
 #### 2.3 only_XYModel
 

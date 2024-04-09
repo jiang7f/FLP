@@ -100,6 +100,42 @@ def gnrt_cstt(n, m):
             matrix[j * m + i, n + n * m + i * n + j] = 1
             matrix[n * m + i, n + n * i + j] = 1
     return matrix
+
+
+def gnrt_u(n, m):
+  # 自由变量个数
+  row = n * m - m + n
+  column = 2 * m * n + n
+  matrix = np.zeros((row, column))
+  # p1
+  for i in range(n - 1):
+    matrix[i, 0] = -1
+    matrix[i, i + 1] = 1
+    for j in range(m):
+      matrix[i, n + j * n] = -1
+      matrix[i, n + j * n + i + 1] = 1
+  # p2
+  for j in range(m - 1):
+    for i in range(n - 1):
+      matrix[n - 1 + j * (n - 1) + i, n + j * n] = 1
+      matrix[n - 1 + j * (n - 1) + i, n + j * n + i + 1] = -1
+      matrix[n - 1 + j * (n - 1) + i, n + m * n + j * n] = -1
+      matrix[n - 1 + j * (n - 1) + i, n + m * n + j * n + i + 1] = 1
+  # p3
+  matrix[n - 1 + (m - 1) * (n - 1), 0]= 1
+  for j in range(m):
+    matrix[n - 1 + (m - 1) * (n - 1), n + n * m  + n * j]= 1
+  # p4
+  for i in range(n - 1):
+    matrix[n - 1 + (m - 1) * (n - 1) + i + 1, i + 1] = 1
+    matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + n * m + n * (m - 1) + i + 1] = 1
+    for j in range(m - 1):
+      matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + j * n] = -1
+      matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + j * n + i + 1] = 1
+      matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n  + n * m + j * n] = 1
+  return matrix
+
+
 if __name__ == '__main__':
     # 设置输出格式 单行最大长度200
     set_print_form(0, 200)
