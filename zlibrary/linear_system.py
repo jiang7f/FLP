@@ -1,14 +1,15 @@
 import numpy as np
 
 # 设置numpy输出格式
-def set_print_form(type=0, linewidth=75):
+def set_print_form(type=0, linewidth=75, precision=4, suppress=True):
     if type == 0:
         np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f}'}, linewidth=linewidth)
-    if type == 1:
+    elif type == 1:
         np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f},'}, linewidth=linewidth)
     elif type == 2:
         np.set_printoptions(formatter={'float': lambda x: f'{x:4.1f},'}, linewidth=linewidth)
-
+    elif type == 3:
+        np.set_printoptions(threshold=np.inf, precision=precision, suppress=suppress)
 
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
@@ -134,6 +135,15 @@ def gnrt_u(n, m):
       matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + j * n + i + 1] = 1
       matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n  + n * m + j * n] = 1
   return matrix
+
+
+# 输出非零元素索引
+def find_nonzero_indices(matrix):
+    nonzero_indices = []
+    for row in matrix:
+        row_indices = [i for i, x in enumerate(row) if x != 0]
+        nonzero_indices.append(row_indices)
+    return nonzero_indices
 
 
 if __name__ == '__main__':

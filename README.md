@@ -2,7 +2,9 @@
 
 ## 一 库文件安装方法
 
+```cmd
 python -m pip install -r requirements.txt
+```
 
 ## 二 项目结构
 
@@ -43,15 +45,15 @@ python -m pip install -r requirements.txt
 2. 1_gnrt_hd_by_u.ipynb  
 
 
->首先设 $u= \{-1,0,1\}^{\otimes n}$ ,则Hd的非零元行坐标的取法为：
->1. 将 -1 取 0 ，0 取为 (0,1), 1 取 1 ，逐个相乘得到非零元的位置。
->例如 $u = (-1,0,-1,0,1)$ 则 非零元位置为 $0\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot0 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot1$
->即 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
->2. 将-1 取 1，1取 0 ，0还是取0，1 ，得到对称的位置。
->同样的例子，也就是将u的-1和1 出现的位置取反，得到 $1\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot1 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot0=\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
->上面两个例子综合得到非零元行坐标 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$，$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
->那么列坐标就是$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$，$\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
->即交换一下两个对称的位置组合。  因此上面的Hd的非零元坐标为(00001,10100),(10100,00001)  ,  (00011,10110),(10110,00011)  等等。
+> 首先设 $u= \{-1,0,1\}^{\otimes n}$ ,则Hd的非零元行坐标的取法为：
+> 1. 将 -1 取 0 ，0 取为 (0,1), 1 取 1 ，逐个相乘得到非零元的位置。
+> 例如 $u = (-1,0,-1,0,1)$ 则 非零元位置为 $0\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot0 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot1$
+> 即 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
+> 2. 将-1 取 1，1取 0 ，0还是取0，1 ，得到对称的位置。
+> 同样的例子，也就是将u的-1和1 出现的位置取反，得到 $1\cdot \begin{bmatrix}0\\1 \end{bmatrix}\cdot1 \cdot \begin{bmatrix}0\\1 \end{bmatrix} \cdot0=\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
+> 上面两个例子综合得到非零元行坐标 $\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$，$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$
+> 那么列坐标就是$\begin{bmatrix}10100\\10110\\11100\\11110\end{bmatrix}$，$\begin{bmatrix}00001\\00011\\01001\\01011\end{bmatrix}$
+> 即交换一下两个对称的位置组合。  因此上面的Hd的非零元坐标为(00001,10100),(10100,00001)  ,  (00011,10110),(10110,00011)  等等。
 
 #### 2.3 only_XYModel
 
@@ -82,3 +84,11 @@ nohup xxx/python xxx.py &
 - find_free_variables: 返回主元和自由变量索引
 - find_basic_solution: 求基础解析
 - gnrt_cstt: 生成FLP问题约束矩阵
+
+## others
+
+关于迁移
+
+```cmd
+pipx run flake8-qiskit-migration ./
+```

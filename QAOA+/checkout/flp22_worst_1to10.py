@@ -2,7 +2,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
-from qiskit import Aer
+from qiskit_aer import Aer
 from qiskit.circuit import Parameter
 from qiskit.visualization import plot_histogram
 from functools import reduce
@@ -25,8 +25,6 @@ num_qubits = n + 2 * n * m
 # gi设施i的建设成本
 g = [2, 1]
 
-depth = 5
-params = np.ones(depth * 2)
 GateX = np.array([[0, 1],[1, 0]])
 GateY = np.array([[0, -1j],[1j, 0]])
 GateZ = np.array([[1, 0],[0, -1]])
@@ -61,8 +59,10 @@ def first_nonzero_index(arr, total_bits=3):
         if num != 0:
             binary_repr = format(i, '0' + str(total_bits) + 'b')
             return binary_repr
+
 def generate_Hp(n, m, d, g):
     # 初始化 Hp 矩阵为零矩阵
+    # print(num_qubits)
     Hp = np.zeros((2**num_qubits, 2**num_qubits))
     for i in range(m):
         for j in range(n):
@@ -74,39 +74,38 @@ def generate_Hp(n, m, d, g):
         
 Hp = generate_Hp(n, m, d, g)
 
+import sys
+sys.path.append('../../')
+import zlibrary.linear_system as ls
 Cons = np.array([[-1, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-                [-1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-                [0, -1, 0, 1, 0, 0, 0, 1, 0, 0],
-                [0, -1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 1, 1, 0, 0, 0, 0]])
+              [-1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+              [0, -1, 0, 1, 0, 0, 0, 1, 0, 0],
+              [0, -1, 0, 0, 0, 1, 0, 0, 0, 1],
+              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 1, 1, 0, 0, 0, 0]])
 u = ls.find_basic_solution(Cons)
 v = np.where(u == 1, 1, 0)
 w = np.where(u == -1, 1, 0)
 Hd = calculate_hamiltonian(v, w)
-# 求解本征值和本征态
-eigenvalues, eigenvectors = np.linalg.eig(Hd)
-sorted_indices = np.argsort(-eigenvalues)
 
-sorted_eigenvalues = eigenvalues[sorted_indices]
-sorted_eigenvectors = eigenvectors[:, sorted_indices]
 from scipy.linalg import expm
 def build_circ(params):
+  depth = len(params) // 2
   qc = QuantumCircuit(num_qubits)
   beta = params[:depth]
   gamma = params[depth:]
-  # qc.initialize(eigenvectors[:, 0].real, range(num_qubits))
   for i in [1,3,4,6,8,9]:
     qc.x(i)
   for dp in range(depth):
-    qc.unitary(expm(-1j * beta[dp] * Hd), range(num_qubits))
-    qc.unitary(expm(-1j * gamma[dp] * Hp), range(num_qubits)) # transpile
+    qc.unitary(expm(-1j * beta[dp] * Hp), range(num_qubits)) # transpile
+    qc.unitary(expm(-1j * gamma[dp] * Hd), range(num_qubits))
   qc.measure_all()
   return qc
+
 def cost_function(x):
   num = [int(char) for char in x]
   C = 0
@@ -140,17 +139,14 @@ def expectation_from_sample(shots = 2000):
   
   return execute_circ
 
-
 from numpy.lib.utils import source
 from scipy.optimize import minimize
 import numpy as np
 # 初始化迭代计数器
 iteration_count = 0
-def test(dep, par):
-  global depth, params, iteration_count
+def test(par):
+  global iteration_count
   iteration_count = 0
-  depth = dep
-  params = par
   expectation = expectation_from_sample()
   def callback(x):
       global iteration_count
@@ -161,7 +157,7 @@ def test(dep, par):
   max_iterations = 1000
 
   # 使用 COBYLA 方法进行最小化，并设置 callback 函数
-  res = minimize(expectation, params, method='COBYLA', options={'maxiter': max_iterations}, callback=callback)
+  res = minimize(expectation, par, method='COBYLA', options={'maxiter': max_iterations}, callback=callback)
   # 输出最终结果
   print("Final Result:", res)
   backend = Aer.get_backend('aer_simulator')
@@ -177,9 +173,11 @@ def test(dep, par):
   print("selection\t\tprobability\tvalue")
   print("---------------------------------------------------")
   for x in sorted_counts[:20]:
-    print(x, "{:.1f}%".format(counts[x] / shots * 100), cost_function(x))
-    
+    print(x, "{:.2f}%".format(counts[x] / shots * 100), cost_function(x))
+
 for dep in range(1,10):
-  print(f'\n\ndep=={dep}')
-  test(dep, np.full(dep * 2, np.pi/3))
+  print(f'dep=={dep}')
+  test(np.full(dep * 2, np.pi/3, dtype=np.float128))
+  print()
+
 extn.output_to_file_reset("flp22-worst finished")

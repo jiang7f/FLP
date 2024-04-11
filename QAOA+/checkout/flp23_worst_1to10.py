@@ -2,7 +2,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
-from qiskit import Aer
+from qiskit_aer import Aer
 from qiskit.circuit import Parameter
 from qiskit.visualization import plot_histogram
 from functools import reduce
@@ -102,8 +102,8 @@ def build_circ(params):
   for i in [7, 9, 11, 13]:
     qc.x(i)
   for dp in range(depth):
-    qc.unitary(expm(-1j * beta[dp] * Hd), range(num_qubits))
     qc.unitary(expm(-1j * gamma[dp] * Hp), range(num_qubits)) # transpile
+    qc.unitary(expm(-1j * beta[dp] * Hd), range(num_qubits))
   qc.measure_all()
   return qc
 def cost_function(x):

@@ -13,7 +13,7 @@ def output_to_file_init(state=None):
     output_dir = './==output==/'
     os.makedirs(output_dir, exist_ok=True)
     caller_frame = inspect.stack()[1]
-    file_name = os.path.basename(caller_frame.filename).replace(".py", f"_{os.getpid()}_{current_time}") if '__file__' in globals() else "interactive_mode"
+    file_name = os.path.basename(caller_frame.filename).replace(".py", f"_{current_time}_{os.getpid()}") if '__file__' in globals() else "interactive_mode"
     # 定义输出函数
     def stdout_to_file(output):
         with open(output_dir + file_name + '.out', "a") as file:
