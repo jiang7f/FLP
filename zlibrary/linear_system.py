@@ -9,7 +9,7 @@ def set_print_form(type=0, linewidth=75, precision=4, suppress=True):
     elif type == 2:
         np.set_printoptions(formatter={'float': lambda x: f'{x:4.1f},'}, linewidth=linewidth)
     elif type == 3:
-        np.set_printoptions(threshold=np.inf, precision=precision, suppress=suppress)
+        np.set_printoptions(threshold=np.inf, precision=precision, suppress=suppress, linewidth=linewidth)
 
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
