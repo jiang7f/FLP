@@ -1,9 +1,5 @@
-import networkx as nx
-import matplotlib.pyplot as plt
-
-from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
+from qiskit import QuantumCircuit
 from qiskit_aer import Aer
-from qiskit.circuit import Parameter
 from qiskit.visualization import plot_histogram
 from functools import reduce
 
@@ -12,14 +8,14 @@ from scipy.optimize import minimize
 
 import sys
 sys.path.append('../../')
-import zlibrary.linear_system as ls
-import zlibrary.extension as extn
+import z_library.linear_system as ls
+import z_library.extension as extn
 extn.output_to_file_init("start")
 
 # dij需求i到设施j的成本
-d = [[1, 2], [1, 2]]
+d = [[1, 2], [3, 4], [5, 6]]
 n = 2   # 两个设施点
-m = 2   # 两个需求点
+m = 3   # 三个需求点
 num_qubits = n + 2 * n * m
 
 # gi设施i的建设成本
@@ -76,7 +72,7 @@ Hp = generate_Hp(n, m, d, g)
 
 import sys
 sys.path.append('../../')
-import zlibrary.linear_system as ls
+import z_library.linear_system as ls
 Cons = np.array([[-1, 0, 1, 0, 0, 0, 1, 0, 0, 0],
               [-1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
               [0, -1, 0, 1, 0, 0, 0, 1, 0, 0],
@@ -180,4 +176,4 @@ for dep in range(1,10):
   test(np.full(dep * 2, np.pi/3, dtype=np.float128))
   print()
 
-extn.output_to_file_reset("flp22-worst finished")
+extn.output_to_file_reset("flp23-worst finished")
