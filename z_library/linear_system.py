@@ -1,15 +1,9 @@
 import numpy as np
 
 # 设置numpy输出格式
-def set_print_form(type=0, linewidth=75, precision=4, suppress=True):
-    if type == 0:
-        np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f}'}, linewidth=linewidth)
-    elif type == 1:
-        np.set_printoptions(formatter={'float': lambda x: f'{x:2.0f},'}, linewidth=linewidth)
-    elif type == 2:
-        np.set_printoptions(formatter={'float': lambda x: f'{x:4.1f},'}, linewidth=linewidth)
-    elif type == 3:
-        np.set_printoptions(threshold=np.inf, precision=precision, suppress=suppress, linewidth=linewidth)
+def set_print_form(suppress=True, precision=4, linewidth=300):
+    # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
+    np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
 
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
@@ -148,7 +142,7 @@ def find_nonzero_indices(matrix):
 
 if __name__ == '__main__':
     # 设置输出格式 单行最大长度200
-    set_print_form(0, 200)
+    set_print_form()
     # generate constraint(n = 设施数量, m = 需求数量)
     cstt = gnrt_cstt(1, 1)
     print(to_row_echelon_form(cstt))
