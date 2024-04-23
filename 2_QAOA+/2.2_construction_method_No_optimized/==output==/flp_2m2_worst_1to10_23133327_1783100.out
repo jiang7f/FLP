@@ -1,0 +1,54 @@
+| pid: 1783100
+| start time: 2024-04-23 13:33:27.214399
+dep==1
+Iteration 10, Result: 5.417
+Iteration 20, Result: 5.413
+Final Result:  message: Optimization terminated successfully.
+ success: True
+  status: 1
+     fun: 5.411
+       x: [ 1.047e+00  1.246e+00]
+    nfev: 29
+   maxcv: 0.0
+
+----------------- Full result ---------------------
+selection		probability	value
+---------------------------------------------------
+1110010110 50.88% 6
+0101010000 22.92% 5
+1010100000 19.62% 4
+1101101001 4.60% 6
+1101011010 1.35% 7
+1110100101 0.62% 5
+
+dep==2
+Iteration 10, Result: 4.802
+Iteration 20, Result: 4.109
+Iteration 30, Result: 4.088
+Iteration 40, Result: 4.083
+Iteration 50, Result: 4.082
+Final Result:  message: Optimization terminated successfully.
+ success: True
+  status: 1
+     fun: 4.082
+       x: [-1.305e+00  3.119e+00  3.439e+00 -7.868e-01]
+    nfev: 59
+   maxcv: 0.0
+
+----------------- Full result ---------------------
+selection		probability	value
+---------------------------------------------------
+1010100000 94.49% 4
+0101010000 1.90% 5
+1110010110 1.32% 6
+1101011010 0.81% 7
+1110100101 0.76% 5
+1101101001 0.72% 6
+
+dep==3
+Iteration 10, Result: 5.447
+Iteration 20, Result: 4.7695
+Iteration 30, Result: 4.7115
+Iteration 40, Result: 4.6985
+Iteration 50, Result: 4.6845
+Iteration 60, Result: 4.6825

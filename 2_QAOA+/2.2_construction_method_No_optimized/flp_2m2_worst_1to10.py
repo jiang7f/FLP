@@ -43,15 +43,10 @@ def calculate_hamiltonian(v, w):
     n = len(v[0])
     m = len(v)
     hamiltonian = np.zeros((2**n, 2**n))
-
     for i in range(m):
-        term1 = reduce(np.kron, [np.linalg.matrix_power(sigma_plus, v[i][j]) for j in range(n)])
-        term2 = reduce(np.kron, [np.linalg.matrix_power(sigma_minus, w[i][j]) for j in range(n)])
-        term3 = reduce(np.kron, [np.linalg.matrix_power(sigma_plus, w[i][j]) for j in range(n)])
-        term4 = reduce(np.kron, [np.linalg.matrix_power(sigma_minus, v[i][j]) for j in range(n)])
-
-        hamiltonian += term1 @ term2 + term3 @ term4
-
+        term1 = reduce(np.kron, [np.linalg.matrix_power(sigma_plus, v[i][j]) @ np.linalg.matrix_power(sigma_minus, w[i][j]) for j in range(n)])
+        term2 = reduce(np.kron, [np.linalg.matrix_power(sigma_plus, w[i][j]) @ np.linalg.matrix_power(sigma_minus, v[i][j]) for j in range(n)])
+        hamiltonian += term1 + term2
     return hamiltonian
 
 def first_nonzero_index(arr, total_bits=3):
