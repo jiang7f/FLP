@@ -65,16 +65,19 @@ class ConstrainedBinaryOptimization(Model):
         self.variables_idx = {}
         self.current_var_idx = 0
         pass
-    def add_binary_variables(self, name:str, num:int):
+    def add_binary_variables(self, name:str,idxs:Iterable[int]):
         """ Add `num` 0-1 variables. 
         
         If the variable is already in the dictionary, provide feedback and then skip this addition.
 
         Args:
-            num (int): the amount of the variables
-            name (str):  the label of varibles. if the name is `x`, then the varibles will be `x0,x1,x2,...`
+            name (str): the label of varibles. 
+            idxs (int): the indexs of the variables. if the name is `x`, idxs is range(n) then the varibles will be `x0,x1,x2,...`
+
+        Example:
+            add_binary_variables('x', range(5))
         """
-        BVars = [Variable(name + str(i)) for i in range(num)]
+        BVars = [Variable(name + str(i)) for i in idxs]
         self.variables.extend(BVars)
         for var in self.variables[self.current_var_idx:]:
             if var.name in self.variables_idx:
@@ -126,7 +129,7 @@ class ConstrainedBinaryOptimization(Model):
         """add one linear constraint to the problem
 
         Args:
-            coefficients (Iterable): [a_1, a_2,..., a_n, b] represents a_1*x_1 + a_2*x_2 + ... + a_n*x_n == b
+            coefficients (Iterable): [a0, a1,..., a(n-1), b] represents a0*x0 + a1*x1 + ... + a(n-1)*x(n-1) == b
         """
         assert len(coefficients) == 1 + len(self.variables)
         self.constraints.append(coefficients)
@@ -135,7 +138,7 @@ class ConstrainedBinaryOptimization(Model):
         """add the objective function to the problem
 
         Args:
-            coefficients (Iterable): [c_1, c_2,..., c_n] represents c_1*x_1 + c_2*x_2 + ... + c_n*x_n
+            coefficients (Iterable): [c0, c1,..., c(n-1)] represents c0*x0 + c1*x1 + ... + c(n-1)*x(n-1)
         """
         self.linear_objective = coefficients
 
