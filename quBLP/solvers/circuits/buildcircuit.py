@@ -3,15 +3,15 @@ from qiskit import QuantumCircuit
 import numpy as np
 import numpy.linalg as ls
 from scipy.linalg import expm
-from .penneylanedecompose import get_driving_component as get_driving_component_pennylane
+from .penneylanedecompose import get_driver_component as get_driver_component_pennylane
 
-def driving_unitary(u):
+def plus_minus_gate_sequence_to_unitary(s):
     # 把非0元素映射成01
-    filtered_arr = [0 if x == -1 else 1 for x in u if x != 0]
+    filtered_arr = [0 if x == -1 else 1 for x in s if x != 0]
     binary_str = ''.join(map(str, filtered_arr))
     # 取到二进制表示的数
     map_num = int(binary_str, 2)
-    length = len(u)
+    length = len(s)
     scale = 2**length
     matrix = np.zeros((scale, scale))
     matrix[map_num, scale - 1 - map_num] = 1
@@ -52,9 +52,9 @@ class pennylaneCircuit:
                     nonzero_indices = np.nonzero(hd_bits)[0]
                     nonzerobits = hd_bits[nonzero_indices]
                     if is_decompose:
-                        get_driving_component_pennylane(num_qubits, hdparams[dp], nonzerobits, nonzero_indices)
+                        get_driver_component_pennylane(num_qubits, hdparams[dp], nonzerobits, nonzero_indices)
                     else:
-                        qml.QubitUnitary(expm(-1j * hdparams[dp] * driving_unitary(nonzerobits)), wires=nonzero_indices)
+                        qml.QubitUnitary(expm(-1j * hdparams[dp] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
             return qml.probs(wires=range(num_qubits))
         self.inference_circuit = circuit
         def costfunc(params):
@@ -90,26 +90,11 @@ class QiskitCircuit:
         self.n = n
         self.p = p
         self.num_qubits = n * p
-    def gnrt_gate_hdi(u):
-        result = []
-        nonzero_indices = ls.find_nonzero_indices(u)
-        for urow, nrow in zip(u, nonzero_indices):
-            # 把非0元素映射成01
-            filtered_arr = [0 if x == -1 else 1 for x in urow if x != 0]
-            binary_str = ''.join(map(str, filtered_arr))
-            # 取到二进制表示的数
-            map_num = int(binary_str, 2)
-            # print(map_num)
-            length = len(nrow)
-            scale = 2**length
-            matrix = np.zeros((scale, scale))
-
-            matrix[map_num, scale - 1 - map_num] = 1
-            map_num = 2**length - 1 - map_num
-            # print(map_num)
-            matrix[map_num, scale - 1 - map_num] = 1
-            result.append(matrix)
-        return result
+    def gnrt_hdi(u):
+        hds = []
+        for urow in u:
+            hds.append(plus_minus_gate_sequence_to_unitary(urow))
+        return hds
     def build_circuit(self,ini_states,hpparms,hdparms,gate_hds,nonzero_indices,Hp=None):
         # Initialize the circuit
         num_qubits = self.num_qubits
@@ -124,7 +109,6 @@ class QiskitCircuit:
             for dp in range(depth):
                 for gate_hdi, ind in zip(gate_hds, nonzero_indices):
                     qc.unitary(expm(-1j * gamma[dp] * gate_hdi), (num_qubits - 1 - i for i in ind))
-        
         for dp in range(depth):
             qc.unitary(expm(-1j * beta[dp] * Hp), range(num_qubits))
             for gate_hdi, ind in zip(gate_hds, nonzero_indices):

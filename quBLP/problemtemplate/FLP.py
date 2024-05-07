@@ -57,7 +57,7 @@ class FLProblem(ConstrainedBinaryOptimization):
                 matrix[n * m + i, n + n * i + j] = 1
         return matrix
     
-    def fast_solve_driving_bitstr(self):
+    def fast_solve_driver_bitstr(self):
         n, m  = self.n,self.m
         # 自由变量个数
         row = n * m - m + n

@@ -43,7 +43,7 @@ def reverse_apply_convert(qc,bitstring):
     ##find bit start with 1
 
 
-def get_driving_component(num_qubits,t,bitstring):
+def get_driver_component(num_qubits,t,bitstring):
     qc = QuantumCircuit(num_qubits)
     reverse_apply_convert(qc,bitstring)
     qc.barrier(label='convert')
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         write_string = ''
         num_q = len(bitstring)
         start = perf_counter()
-        qc =get_driving_component(num_q,t,bitstring)
+        qc =get_driver_component(num_q,t,bitstring)
         end = perf_counter()
         initime = end-start
         time['ours'] = initime

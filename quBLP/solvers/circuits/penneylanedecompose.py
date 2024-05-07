@@ -41,7 +41,7 @@ def reverse_apply_convert(bitstring,qubit_indexes):
     qml.PauliX(qubit_indexes[num_qubits - 1])
 
 
-def get_driving_component(num_qubits:int,t:float,bitstring:list,qubit_indexes:list):
+def get_driver_component(num_qubits:int,t:float,bitstring:list,qubit_indexes:list):
     """ the drving hamitonian simulation for the bitstring like [0,1,0]
 
     Args:

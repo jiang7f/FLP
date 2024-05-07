@@ -55,7 +55,7 @@ class ConstrainedBinaryOptimization(Model):
         """ a constrainted binary optimization problem
 
         Args:
-            fastsolve (bool, optional): whether to use fast solve method to get the bitstring for driving hamiltonian. Defaults to False.
+            fastsolve (bool, optional): whether to use fast solve method to get the bitstring for driver hamiltonian. Defaults to False.
         """
         self.fastsolve = fastsolve
         self.variables = []
@@ -65,7 +65,7 @@ class ConstrainedBinaryOptimization(Model):
         self.variables_idx = {}
         self.current_var_idx = 0
         pass
-    def add_binary_variables(self, name:str,num:int):
+    def add_binary_variables(self, name:str, num:int):
         """ Add `num` 0-1 variables. 
         
         If the variable is already in the dictionary, provide feedback and then skip this addition.
@@ -147,9 +147,9 @@ class ConstrainedBinaryOptimization(Model):
         """
         pass
 
-    def get_driving_bitstr(self):
+    def get_driver_bitstr(self):
         if self.fastsolve:
-            return self.fast_solve_driving_bitstr()
+            return self.fast_solve_driver_bitstr()
         basic_vector = find_basic_solution(np.array(self.constraints)[:,:-1])
         return basic_vector
     def add_objective(self,objectivefunc):
@@ -164,9 +164,9 @@ class ConstrainedBinaryOptimization(Model):
                 return bitstr
         return
     def optimize(self):
-        self.driving_bitstrs = self.get_driving_bitstr()
+        self.driver_bitstrs = self.get_driver_bitstr()
         self.feasiable_state = self.get_feasible_solution()
-        best_solution,cost = solve(self.variables,self.objective,self.driving_bitstrs,self.feasiable_state)
+        best_solution,cost = solve(self.variables,self.objective,self.driver_bitstrs,self.feasiable_state)
         self.solution = best_solution
         self.objVal = cost
         return best_solution

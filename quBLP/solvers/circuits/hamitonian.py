@@ -5,7 +5,7 @@ class Hamiltonian:
     def decompose_to_circuit(self):
         pass
 
-class DrivingHamiltonian:
+class DriverHamiltonian:
     def __init__(self,u:Iterable):
         self.u = u
     def decompose_to_circuit(self):
