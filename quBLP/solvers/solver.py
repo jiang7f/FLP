@@ -14,7 +14,7 @@ def solve(variables,objective,driving_bitstrs,feasiable_state,max_iter=30,learni
     ## test
     cost_func = circuit.build_unitary_circuit(feasiable_state,driving_bitstrs,objective)
     test_res = circuit.inference([0.1]*num_layers)
-    print(test_res)
+    print(f'test_res: {test_res}')
     print(circuit.inference_circuit)
     best_params = train_gradient(num_layers,cost_func,max_iter,learning_rate)
     best_solution = circuit.inference(best_params)

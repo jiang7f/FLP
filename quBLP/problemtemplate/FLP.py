@@ -1,9 +1,9 @@
 
 import numpy as np
 from typing import Iterable
-from ..models import BinaryConstraintOptimization
+from ..models import ConstrainedBinaryOptimization
 # 生成FLP问题约束矩阵
-class FLProblem(BinaryConstraintOptimization):
+class FLProblem(ConstrainedBinaryOptimization):
     """ a `facility location problem`, is defined as
     .. math::
         min \sum_{i=1}^m \sum_{j=1}^n d_{i j} y_{i j}+\sum_{j=1}^n g_j x_j 
@@ -21,7 +21,7 @@ class FLProblem(BinaryConstraintOptimization):
 
         Args:
             n (int): number of facility
-            m (int):  number of demand point
+            m (int): number of demand point
             d (Matrix[m,n]): d_{i,j} : the cost for demand i to facility j
             g (Vector[n]): g_j: the building cost for facility j
         """

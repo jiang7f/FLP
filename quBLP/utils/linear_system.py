@@ -1,5 +1,9 @@
 import numpy as np
 
+# 设置numpy输出格式
+def set_print_form(suppress=True, precision=4, linewidth=300):
+    # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
+    np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
     """Convert a matrix to row echelon form."""
@@ -28,39 +32,28 @@ def to_row_echelon_form(orimatrix: np.array):
             if i != r:
                 lv = matrix[i, lead]
                 matrix[i] = matrix[i] - lv * matrix[r]
-
         lead += 1
     return matrix
-
-
 # 去除底部全0行
 def remove_zero_rows(matrix):
     non_zero_rows = np.any(matrix, axis=1)
     return matrix[non_zero_rows]
-
-
 # 返回主元和自由变量索引
 def find_free_variables(matrix):
     num_rows, num_cols = matrix.shape
-
     pivot_columns = set()  # 主元列的集合
     free_columns = []      # 自由列的列表
-
     # 找到主元列
     for row in matrix:
         for j, elem in enumerate(row):
             if elem != 0:
                 pivot_columns.add(j)
                 break
-
     # 找到自由列
     for j in range(num_cols):
         if j not in pivot_columns:
             free_columns.append(j)
-
     return list(pivot_columns), free_columns
-
-
 # 求基础解析
 def find_basic_solution(matrix):
     matrix = to_row_echelon_form(matrix)
@@ -75,10 +68,8 @@ def find_basic_solution(matrix):
         solution[index] = 1
         solution[pivot_columns] = x
         basic_solutions.append(solution)
-    ## 通过加或者减 实现基础解系的每个解在（-1，0，1）中
-        
+    ## 通过加或者减 实现基础解系的每个解在（-1，0，1）中  
     return np.array(basic_solutions)
-
 def find_nonzero_indices(u):
     nonzero_indices = []
     for urow in u:

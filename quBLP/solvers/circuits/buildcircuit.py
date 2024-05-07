@@ -24,8 +24,13 @@ class pennylaneCircuit:
         self.num_qubits = num_qubits
         self.num_layers = num_layers
     
+    def build_unitary_circuit(self, feasiable_state, hd_bitsList, objective_function, Hp=None):
+        return self._create_circuit(feasiable_state, hd_bitsList, objective_function, Hp, is_decompose=False)
 
-    def build_unitary_circuit(self,feasiable_state,hd_bitsList,objective_function,Hp=None):
+    def decompose_circuit(self, feasiable_state, hd_bitsList, objective_function, Hp=None):
+        return self._create_circuit(feasiable_state, hd_bitsList, objective_function, Hp, is_decompose=True)
+
+    def _create_circuit(self,feasiable_state,hd_bitsList,objective_function,Hp=None, is_decompose=False):
         num_qubits = self.num_qubits
         dev = qml.device("default.qubit", wires=num_qubits)
         @qml.qnode(dev)
@@ -46,64 +51,29 @@ class pennylaneCircuit:
                     hd_bits = hd_bitsList[bitstrings]
                     nonzero_indices = np.nonzero(hd_bits)[0]
                     nonzerobits = hd_bits[nonzero_indices]
-                    qml.QubitUnitary(expm(-1j * hdparams[dp] * driving_unitary(nonzerobits)), wires=nonzero_indices)
+                    if is_decompose:
+                        get_driving_component_pennylane(num_qubits, hdparams[dp], nonzerobits, nonzero_indices)
+                    else:
+                        qml.QubitUnitary(expm(-1j * hdparams[dp] * driving_unitary(nonzerobits)), wires=nonzero_indices)
             return qml.probs(wires=range(num_qubits))
         self.inference_circuit = circuit
         def costfunc(params):
             bitstrs = circuit(params)
             bitstrsindex = np.nonzero(bitstrs)[0]
             probs = bitstrs[bitstrsindex]
-            variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits)[::-1])] for i in bitstrsindex]
+            variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
             costs = 0
-            for i in range(len(variablevalues)):
-                value = variablevalues[i]
-                costs += objective_function(value) * probs[i]
-            return costs/len(probs)
+            for value, prob in zip(variablevalues, probs):
+                costs += objective_function(value) * prob
+            return costs
         return costfunc
-    
-    def decompose_circuit(self,feasiable_state,hd_bitsList,objective_function,Hp=None):
-        num_qubits = self.num_qubits
-        dev = qml.device("default.qubit", wires=num_qubits)
-        @qml.qnode(dev)
-        def circuit(params):
-            for i in feasiable_state:
-                qml.PauliX(i)
-            depth  = self.num_layers
-            if Hp:
-                hpparams = params[:depth]
-                hdparams = params[depth:]
-                assert len(hdparams) == depth
-            else:
-                hdparams = params
-                assert len(hdparams) == depth
-            for dp in range(depth):
-                # apply_problem_hamitonian_pennylane(num_qubits,hpparams[dp])
-                for bitstrings in range(len(hd_bitsList)):
-                    ## remove the zero bit and log the nozero index
-                    hd_bits = hd_bitsList[bitstrings]
-                    nonzero_indices = np.nonzero(hd_bits)[0]
-                    nonzerobits = hd_bits[nonzero_indices]
-                    get_driving_component_pennylane(num_qubits,hdparams[dp],nonzerobits,nonzero_indices)
-            return qml.probs(wires=range(num_qubits))
-        self.inference_circuit = circuit
-        def costfunc(params):
-            bitstrs = circuit(params)
-            bitstrsindex = np.nonzero(bitstrs)[0]
-            probs = bitstrs[bitstrsindex]
-            variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits)[::-1])] for i in bitstrsindex]
-            costs = 0
-            for i in range(len(variablevalues)):
-                value = variablevalues[i]
-                costs += objective_function(value) * probs[i]
-            return costs/len(probs)
-        return costfunc
-    
+
     def inference(self,params):
         bitstrs = self.inference_circuit(params)
         bitstrsindex = np.nonzero(bitstrs)[0]
         probs = bitstrs[bitstrsindex]
         maxprobidex = np.argmax(probs)
-        variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits)[::-1])] for i in bitstrsindex]
+        variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
         return variablevalues[maxprobidex]
 
     
