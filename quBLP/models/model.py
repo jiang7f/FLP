@@ -100,7 +100,6 @@ class ConstrainedBinaryOptimization(Model):
                 return variables
         BVars = gnrt_variables(name, shape)
         return BVars
-        
     def add_binary_variable(self, name:str):
         """ Add one 0-1 variable
 
@@ -115,6 +114,9 @@ class ConstrainedBinaryOptimization(Model):
         self.variables_idx[name] = self.current_var_idx
         self.current_var_idx += 1
         return var
+    # 输入变量对象, 输出变量在问题对象变量列表中的下标, 算cost用
+    def var_to_idex(self, var: Variable):
+        return self.variables_idx[var.name]
     def add_constraint(self, expr):
         """
         Add a constraint to the optimization problem.
@@ -179,7 +181,7 @@ class ConstrainedBinaryOptimization(Model):
         for i in range(1 << len(self.variables)):
             bitstr = [int(j) for j in list(bin(i)[2:].zfill(len(self.variables)))]
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
-                return bitstr
+                return np.nonzero(bitstr)[0]
         return
     def optimize(self):
         self.driver_bitstrs = self.get_driver_bitstr()

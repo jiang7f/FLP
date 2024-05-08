@@ -3,37 +3,45 @@
 ### 1. 设施选址问题 Facility Location Problem (FLP)
 
 **变量**：
-- $x_i  = 1 如果在位置  i  建设设施，否则为 0$
-- $y_{ij}  = 1 如果客户  j  被分配给位置  i  的设施，否则为 0$
+- 假设有 $m$ 个需求点, $n$ 个设施
+- $x_j \text{ for } j= 1, \cdots, n$, 当设施 $j$ 开设时 $x_j = 1$, 否则为 $0$
+- $y_{ij} \text{ for } i = 1, \cdots, m \text{ and } j = 1, \cdots, n$, 当需求点 $i$ 被分配给位置 $j$ 时 $y_{ij} = 1$, 否则为 $0$
 
 **目标函数**：
-- $min \sum_{i=1}^m \sum_{j=1}^n c_{ij} y_{ij} + \sum_{j=1}^n f_j x_j $  
-$其中  f_j  是在位置  j  建设设施的成本， c_{ij}  是将客户  i  分配给设施  j  的成本$
+- $min \sum_{i=1}^m \sum_{j=1}^n c_{ij} y_{ij} + \sum_{j=1}^n f_j x_j$  
+其中 $f_j$ 是在位置 $j$ 建设设施的成本, $c_{ij}$ 是将客户 $i$ 分配给设施 $j$ 的成本
 
 **约束**：
-- $\sum_{j=1}^n y_{ij} = 1, \quad i=1,2, \cdots, m$
-- $y_{ij} \leq x_j, \quad i=1, \cdots, m, j=1, \cdots, 
-n$
+- $\sum_{j=1}^n y_{ij} = 1 \text{ for all }  i=1,2, \cdots, m$
+- $y_{ij} \leq x_j \text{ for all } i=1, \cdots, m\text{ and } j=1, \cdots, n$
 - $y_{i j}, x_j \in\{0,1\}$
 
 **等式约束**
-- $\sum_{j=1}^n y_{ij} = 1, \quad i=1,2, \cdots, m$
-- $y_{i j}+z_{i j}-x_j=0, \quad i=1, \cdots, m, j=1, \cdots, n$
+- $\sum_{j=1}^n y_{ij} = 1 \text{ for all }  i=1,2, \cdots, m$
+- $y_{i j}+z_{i j}-x_j=0 \text{ for all } i=1, \cdots, m\text{ and } j=1, \cdots, n$
 - $z_{i j}, y_{i j}, x_j \in\{0,1\} $
 
 ### 2. 图着色问题 Graph Coloring Problem (GCP)
 
 **变量**：
--  $x_{i,k}  = 1 如果顶点  i  被分配颜色  k ，否则为 0$
+- 假设有 m 块图, n 种颜色
+- $x_{ij} \text{ for } i = 1, \cdots, m \text{ and } j = 1, \cdots, n$, 当图 $i$ 被分配颜色 $j$ 时 $x_{ij} = 1$, 否则为 $0$
 
 **目标函数**：
-- $\min  K $
+- $\min n $
 
 **约束**：
-- $\sum_{k=1}^K x_{i,k} = 1  对每个顶点  i$
-- $x_{i,k} + x_{j,k} \leq 1  对每对相邻顶点  (i, j)  和每种颜色  k $
+- $\sum_{j = 1}^n x_{ij} = 1 \text{ for all } i = 1, \cdots, m$
+- $x_{a,j} + x_{bj} \leq 1$ for all pair of adjacent graphs $(a, b)$ and $j = 1, \cdots, n$
+- $x_{ij} \in\{0,1\} $
 
-## 2. 旅行商问题 Traveling Salesman Problem (TSP)
+**等式约束**:
+- $\sum_{j = 1}^n x_{ij} = 1 \text{ for all } i = 1, \cdots, m$
+- $x_{aj} + x_{bj} - y_{abj} = 0$ for all pair of adjacent graphs $(a, b)$ and $j = 1, \cdots, n$
+- $x_{ij}, y_{abj} \in\{0,1\} $
+
+**pending: ab可以表示成一个k(相邻边数) ,共有km个y.**  
+## 3. 旅行商问题 Traveling Salesman Problem (TSP)
 
 **变量**：
 - $x_{ij} = 1 如果旅行路线从城市  i  直接到城市  j ，否则为 0$

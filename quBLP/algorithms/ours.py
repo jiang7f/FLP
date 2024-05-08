@@ -1,4 +1,4 @@
-# wait to be done
+# pending
 # This file encapsulates the our method based on QAOA+
 import matplotlib.pyplot as plt
 from typing import List

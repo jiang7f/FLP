@@ -1,4 +1,4 @@
-# wait to be done
+# pending
 # This file encapsulates the original QAOA algorithm
 import matplotlib.pyplot as plt
 from typing import List

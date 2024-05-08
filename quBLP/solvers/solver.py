@@ -1,7 +1,7 @@
 from .circuits import pennylaneCircuit
 from .optimizer import train_gradient
 
-def solve(variables,objective,driver_bitstrs,feasiable_state,max_iter=30,learning_rate=0.1,num_layers=2):
+def solve(variables,objective,driver_bitstrs,feasiable_state,max_iter=50,learning_rate=0.1,num_layers=3):
     """solver for the problem
     Args:
         variables (List[str]): variables of the problem

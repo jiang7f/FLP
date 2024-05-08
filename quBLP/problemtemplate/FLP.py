@@ -15,7 +15,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         z_{i j}, y_{i j}, x_j \in\{0,1\} 
 
     """
-    def __init__(self, n: int, m: int, c: Iterable[Iterable],f: Iterable) -> None:
+    def __init__(self, n: int, m: int, c: Iterable[Iterable],f: Iterable, fastsolve=True) -> None:
         """ a facility location problem
 
         Args:
@@ -24,7 +24,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             c (Matrix[m,n]): c_{i,j} : the cost for demand i to facility j
             f (Vector[n]): f_j: the building cost for facility j
         """
-        super().__init__(fastsolve=True)
+        super().__init__(fastsolve)
         ## 设施点个数
         self.n = n
         ## 需求点个数
@@ -94,14 +94,13 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
     def get_feasible_solution(self):
         """ 根据约束寻找到一个可行解
         """
-        for var in self.X:
-            var.set_value(1)
+        for j in range(self.n):
+            self.X[j].set_value(1)
         for i in range(self.m):
             self.Y[i][0].set_value(1)
         for i in range(self.m):
             for j in range(self.n):
                 self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
-        
         return np.nonzero([x.x for x in self.variables])[0]
 
     def objectivefunc(self):
@@ -111,15 +110,15 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             Args:
                 variables (Iterable):  the list of value of variables
 
-            Returns:
-                scaler
+            Return:
+                cost
             """
             cost = 0
             for i in range(self.m):
                 for j in range(self.n):
-                    cost += self.c[i][j] * variables[self.n * (1 + i) + j]
+                    cost += self.c[i][j] * variables[self.var_to_idex(self.Y[i][j])]
             for j in range(self.n):
-                cost += self.f[j] * variables[j]
+                cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
             return cost
         return objective
 

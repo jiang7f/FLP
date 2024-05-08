@@ -13,4 +13,6 @@ def split_expr(expr):
                 all_terms.append(('-', term))
         else:
             all_terms.append(('+', terms[i]))
+    if all_terms[0][1] == '':
+        all_terms = all_terms[1:]
     return all_terms
