@@ -166,10 +166,16 @@ class ConstrainedBinaryOptimization(Model):
             coefficients (Iterable): _description_
         """
         pass
-
+    @property
+    def linear_constraints(self):
+        return []
     def get_driver_bitstr(self):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
+        # 如果不使用解析的解系, 则输入约束, 高斯消元求解
+        print(self.linear_constraints)
+        for cstrt in self.linear_constraints:
+            self._add_linear_constraint(cstrt)
         basic_vector = find_basic_solution(np.array(self.constraints)[:,:-1])
         return basic_vector
     def add_objective(self,objectivefunc):

@@ -47,14 +47,16 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
     def linear_constraints(self):
         n = self.n
         m = self.m
-        total_columns = n + 2 * (m * n)
-        matrix = np.zeros((n * m + m, total_columns))
-        for j in range(n):
-            for i in range(m):
+        total_rows = n * m + m
+        total_columns = n + 2 * (m * n) + 1
+        matrix = np.zeros((total_rows, total_columns))
+        for i in range(m):
+            for j in range(n):
                 matrix[j * m + i, j] = -1
                 matrix[j * m + i, n + i * n + j] = 1
                 matrix[j * m + i, n + n * m + i * n + j] = 1
                 matrix[n * m + i, n + n * i + j] = 1
+            matrix[n * m + i, total_columns - 1] = 1
         return matrix
     
     def fast_solve_driver_bitstr(self):

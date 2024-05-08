@@ -21,60 +21,42 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         self.adjacent_pairs = adjacent_pairs
         # 最坏情况每个图一个颜色
         num_colors = num_graphs
+        self.num_colors = num_graphs
         # x_i_k = 1 如果顶点 i 被分配颜色 k, 否则为0
-        self.X = self.add_binary_variable('x', [num_graphs, num_colors])
-        self.Y = self.add_binary_variable('y', [num_graphs, num_graphs, num_colors])
+        self.X = self.add_binary_variables('x', [num_graphs, num_colors])
+        self.Y = self.add_binary_variables('y', [num_graphs, num_graphs, num_colors])
         self.objective = self.objectivefunc()
         self.feasible_solution = self.get_feasible_solution()
         pass
     @property
     def linear_constraints(self):
-        n = self.n
-        m = self.m
-        total_columns = n + 2 * (m * n)
-        matrix = np.zeros((n * m + m, total_columns))
-
+        from quBLP.utils import linear_system as ls
+        ls.set_print_form()
+        m = self.num_graphs
+        n = self.num_graphs # 颜色的最大数量
+        p = len(self.adjacent_pairs)
+        total_rows = m + p * n
+        total_columns = m * n + m * m * n + 1
+        matrix = np.zeros((total_rows, total_columns))
+        for i in range(m):
+            for j in range(n):
+                matrix[i, i * n + j] = 1
+            matrix[i, total_columns - 1] = 1
+        for j in range(n):
+            for i, (a, b) in enumerate(self.adjacent_pairs):
+                matrix[m + j * p + i, a * n + j] = 1
+                matrix[m + j * p + i, b * n + j] = 1
+                matrix[m + j * p + i, m * n + a * m * n  + b * n + j] = -1
         return matrix
     
-    def fast_solve_driver_bitstr(self):
-        n, m  = self.n,self.m
-        # 自由变量个数
-        row = n * m - m + n
-        column = 2 * m * n + n
-        matrix = np.zeros((row, column))
-        # p1
-        for i in range(n - 1):
-            matrix[i, 0] = -1
-            matrix[i, i + 1] = 1
-            for j in range(m):
-                matrix[i, n + j * n] = -1
-                matrix[i, n + j * n + i + 1] = 1
-        # p2
-        for j in range(m - 1):
-            for i in range(n - 1):
-                matrix[n - 1 + j * (n - 1) + i, n + j * n] = 1
-                matrix[n - 1 + j * (n - 1) + i, n + j * n + i + 1] = -1
-                matrix[n - 1 + j * (n - 1) + i, n + m * n + j * n] = -1
-                matrix[n - 1 + j * (n - 1) + i, n + m * n + j * n + i + 1] = 1
-        # p3
-        matrix[n - 1 + (m - 1) * (n - 1), 0]= 1
-        for j in range(m):
-            matrix[n - 1 + (m - 1) * (n - 1), n + n * m  + n * j]= 1
-        # p4
-        for i in range(n - 1):
-            matrix[n - 1 + (m - 1) * (n - 1) + i + 1, i + 1] = 1
-            matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + n * m + n * (m - 1) + i + 1] = 1
-            for j in range(m - 1):
-                matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + j * n] = -1
-                matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n + j * n + i + 1] = 1
-                matrix[n - 1 + (m - 1) * (n - 1) + i + 1, n  + n * m + j * n] = 1
-        return matrix
+    # def fast_solve_driver_bitstr(self):
+
     
     def get_feasible_solution(self):
         """ 根据约束寻找到一个可行解
         """
         # graph_i color color_i
-        for i in self.num_graphs:
+        for i in range(self.num_graphs):
             self.X[i][i].set_value(1)
         for a, b in self.adjacent_pairs:
             self.Y[a][b][a].set_value(1)
@@ -92,8 +74,8 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                 cost
             """
             cost = 0
-            for j in range(self.n):
-                if 1 in [self.X[i][j].x for i in range(self.m)]:
+            for j in range(self.num_colors):
+                if 1 in [self.X[i][j].x for i in range(self.num_graphs)]:
                     cost += 1
             return cost
         return objective
