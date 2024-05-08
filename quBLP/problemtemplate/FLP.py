@@ -6,7 +6,7 @@ from ..models import ConstrainedBinaryOptimization
 class FLProblem(ConstrainedBinaryOptimization):
     """ a `facility location problem`, is defined as
     .. math::
-        min \sum_{i=1}^m \sum_{j=1}^n d_{i j} y_{i j}+\sum_{j=1}^n g_j x_j 
+        min \sum_{i=1}^m \sum_{j=1}^n c_{i j} y_{i j}+\sum_{j=1}^n f_j x_j 
     
     .. math::
         s.t. \quad \sum_{j=1}^n y_{i j}=1, \quad i=1,2, \cdots, m 
@@ -16,24 +16,24 @@ class FLProblem(ConstrainedBinaryOptimization):
         z_{i j}, y_{i j}, x_j \in\{0,1\} 
 
     """
-    def __init__(self, n: int, m: int, d: Iterable[Iterable],g: Iterable) -> None:
+    def __init__(self, n: int, m: int, c: Iterable[Iterable],f: Iterable) -> None:
         """ a facility location problem
 
         Args:
             n (int): number of facility
             m (int): number of demand point
-            d (Matrix[m,n]): d_{i,j} : the cost for demand i to facility j
-            g (Vector[n]): g_j: the building cost for facility j
+            c (Matrix[m,n]): c_{i,j} : the cost for demand i to facility j
+            f (Vector[n]): f_j: the building cost for facility j
         """
         super().__init__(fastsolve=True)
         ## 设施点个数
         self.n = n
         ## 需求点个数
         self.m = m
-        # dij需求i到设施j的成本
-        self.d = d 
-        # gi设施i的建设成本
-        self.g = g
+        # cij需求i到设施j的成本
+        self.c = c 
+        # fj设施j的建设成本
+        self.f = f
         self.num_variables = n + 2 * n * m
 
         self.X = [self.add_binary_variable('x'+str(i)) for i in range(n)]
@@ -119,9 +119,9 @@ class FLProblem(ConstrainedBinaryOptimization):
             cost = 0
             for i in range(self.m):
                 for j in range(self.n):
-                    cost += self.d[i][j] * variables[self.n * (1 + i) + j]
+                    cost += self.c[i][j] * variables[self.n * (1 + i) + j]
             for j in range(self.n):
-                cost += self.g[j] * variables[j]
+                cost += self.f[j] * variables[j]
             return cost
         return objective
 

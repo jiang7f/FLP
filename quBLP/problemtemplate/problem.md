@@ -7,11 +7,19 @@
 - $y_{ij}  = 1 如果客户  j  被分配给位置  i  的设施，否则为 0$
 
 **目标函数**：
-- $最小化  \sum_{i=1}^n f_i x_i + \sum_{i=1}^n \sum_{j=1}^m c_{ij} y_{ij} ，其中  f_i  是在位置  i  建设设施的成本， c_{ij}  是将客户  j  分配给位置  i  的成本$
+- $min \sum_{i=1}^m \sum_{j=1}^n c_{ij} y_{ij} + \sum_{j=1}^n f_j x_j $  
+$其中  f_j  是在位置  j  建设设施的成本， c_{ij}  是将客户  i  分配给设施  j  的成本$
 
 **约束**：
-- $\sum_{i=1}^n y_{ij} = 1  对每个客户  j $
-- $y_{ij} \leq x_i  对所有  i ,  j ，确保只有当设施  i  被建设时，客户  j  才能被分配到这里$
+- $\sum_{j=1}^n y_{ij} = 1, \quad i=1,2, \cdots, m$
+- $y_{ij} \leq x_j, \quad i=1, \cdots, m, j=1, \cdots, 
+n$
+- $y_{i j}, x_j \in\{0,1\}$
+
+**等式约束**
+- $\sum_{j=1}^n y_{ij} = 1, \quad i=1,2, \cdots, m$
+- $y_{i j}+z_{i j}-x_j=0, \quad i=1, \cdots, m, j=1, \cdots, n$
+- $z_{i j}, y_{i j}, x_j \in\{0,1\} $
 
 ## 2. 旅行商问题（TSP）
 
