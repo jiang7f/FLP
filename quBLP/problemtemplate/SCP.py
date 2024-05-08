@@ -1,8 +1,9 @@
+# wait to be done
 import numpy as np
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization
-# 生成FLP问题约束矩阵
-class FacilityLocationProblem(ConstrainedBinaryOptimization):
+# 生成TSP问题约束矩阵
+class SetCoverProblem(ConstrainedBinaryOptimization):
     """ a `facility location problem`, is defined as
     .. math::
         min \sum_{i=1}^m \sum_{j=1}^n c_{i j} y_{i j}+\sum_{j=1}^n f_j x_j 
@@ -35,10 +36,9 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         self.f = f
         self.num_variables = n + 2 * n * m
 
-        self.X = self.add_binary_variables('x', [n])
-        self.Y = self.add_binary_variables('y', [m, n])
-        self.Z = self.add_binary_variables('z', [m, n])
-
+        self.X = [self.add_binary_variable('x'+str(i)) for i in range(n)]
+        self.Y = [[self.add_binary_variable('y'+str(i)+str(j)) for j in range(n)] for i in range(m)]
+        self.Z = [[self.add_binary_variable('z'+str(i)+str(j)) for j in range(n)] for i in range(m)]
 
         self.objective = self.objectivefunc()
         self.feasible_solution = self.get_feasible_solution()
@@ -97,6 +97,8 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         for var in self.X:
             var.set_value(1)
         for i in range(self.m):
+            for var in self.Y[i]:
+                var.set_value(0)
             self.Y[i][0].set_value(1)
         for i in range(self.m):
             for j in range(self.n):

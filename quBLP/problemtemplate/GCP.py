@@ -1,44 +1,26 @@
+# wait to be done
 import numpy as np
-from typing import Iterable
+from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
-# 生成FLP问题约束矩阵
-class FacilityLocationProblem(ConstrainedBinaryOptimization):
-    """ a `facility location problem`, is defined as
-    .. math::
-        min \sum_{i=1}^m \sum_{j=1}^n c_{i j} y_{i j}+\sum_{j=1}^n f_j x_j 
-    
-    .. math::
-        s.t. \quad \sum_{j=1}^n y_{i j}=1, \quad i=1,2, \cdots, m 
-    .. math::
-        y_{i j}+z_{i j}-x_j=0, \quad i=1, \cdots, m, j=1, \cdots, n
-    .. math::
-        z_{i j}, y_{i j}, x_j \in\{0,1\} 
-
+# 生成TSP问题约束矩阵
+class GraphColoringProblem(ConstrainedBinaryOptimization):
+    """ a `graph coloring problem`, is defined as
+        
     """
-    def __init__(self, n: int, m: int, c: Iterable[Iterable],f: Iterable) -> None:
+    def __init__(self, num_graphs: int, edge_pairs: List[Tuple[int, int]]) -> None:
         """ a facility location problem
 
         Args:
-            n (int): number of facility
-            m (int): number of demand point
-            c (Matrix[m,n]): c_{i,j} : the cost for demand i to facility j
-            f (Vector[n]): f_j: the building cost for facility j
+            num_graphs (int): number of graphs
+            edge_pairs (List[Tuple[int, int]]): c[i] : the list     for demand i to facility j
         """
         super().__init__(fastsolve=True)
-        ## 设施点个数
-        self.n = n
-        ## 需求点个数
-        self.m = m
-        # cij需求i到设施j的成本
-        self.c = c 
-        # fj设施j的建设成本
-        self.f = f
-        self.num_variables = n + 2 * n * m
+        ## 图个数
+        self.num_graphs = num_graphs
+        ## 相邻图对
+        self.edge_pairs = edge_pairs
 
-        self.X = self.add_binary_variables('x', [n])
-        self.Y = self.add_binary_variables('y', [m, n])
-        self.Z = self.add_binary_variables('z', [m, n])
-
+        self.X = [[self.add_binary_variable('x'+str(i)+str(j)) for j in range(num_graphs)] for i in range(num_graphs)]
 
         self.objective = self.objectivefunc()
         self.feasible_solution = self.get_feasible_solution()
@@ -97,6 +79,8 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         for var in self.X:
             var.set_value(1)
         for i in range(self.m):
+            for var in self.Y[i]:
+                var.set_value(0)
             self.Y[i][0].set_value(1)
         for i in range(self.m):
             for j in range(self.n):

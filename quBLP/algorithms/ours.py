@@ -1,4 +1,5 @@
-## This file encapsulates the our method based on QAOA+
+# wait to be done
+# This file encapsulates the our method based on QAOA+
 import matplotlib.pyplot as plt
 from typing import List
 from qiskit import QuantumCircuit

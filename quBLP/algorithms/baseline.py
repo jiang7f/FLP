@@ -1,4 +1,5 @@
-## This file encapsulates the original QAOA algorithm
+# wait to be done
+# This file encapsulates the original QAOA algorithm
 import matplotlib.pyplot as plt
 from typing import List
 from qiskit import QuantumCircuit

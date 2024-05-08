@@ -1,6 +1,6 @@
 ## This file defines a problem of binary constraint optimization 
 import numpy as np
-from typing import List,Iterable
+from typing import Iterable, List
 from ..utils.linear_system import find_basic_solution
 from ..utils.parseexpr import split_expr
 from ..solvers import solve
@@ -64,27 +64,41 @@ class ConstrainedBinaryOptimization(Model):
         self.objective = None
         self.variables_idx = {}
         self.current_var_idx = 0
+        self.variable_name_set = set()
         pass
-    def add_binary_variables(self, name:str,idxs:Iterable[int]):
+    def add_binary_variables(self, name:str, shape:List[int]):
         """ Add `num` 0-1 variables. 
         
         If the variable is already in the dictionary, provide feedback and then skip this addition.
 
         Args:
             name (str): the label of varibles. 
-            idxs (int): the indexs of the variables. if the name is `x`, idxs is range(n) then the varibles will be `x0,x1,x2,...`
+            shape (int): the shape of the variables array. 
 
         Example:
-            add_binary_variables('x', range(5))
+            add_binary_variables('x', [5]): ['x_0', 'x_1', 'x_2', 'x_3', 'x_4']
+            add_binary_variables('x', [2, 2]): [['x_0_0', 'x_0_1'], ['x_1_0', 'x_1_1']]
         """
-        BVars = [Variable(name + str(i)) for i in idxs]
-        self.variables.extend(BVars)
-        for var in self.variables[self.current_var_idx:]:
-            if var.name in self.variables_idx:
-                print(f'varibles {name} already exist')
-                return None
-            self.variables_idx[var.name] = self.current_var_idx
-            self.current_var_idx += 1
+        if name in self.variable_name_set:
+            print(f'varible {name} already exist')
+            return None
+        self.variable_name_set.add(name)
+        def gnrt_variables(prefix, shape):
+            if len(shape) == 1:
+                var_name_list = [f"{prefix}_{i}" for i in range(shape[0])]
+                var_list = [Variable(var) for var in var_name_list]
+                for var_name in var_name_list:
+                    self.variables_idx[var_name] = self.current_var_idx
+                    self.current_var_idx += 1
+                self.variables.extend(var_list)
+                return var_list
+            else:
+                variables = []
+                for i in range(shape[0]):
+                    sub_indices = gnrt_variables(prefix=f"{prefix}_{i}", shape=shape[1:])
+                    variables.append(sub_indices)
+                return variables
+        BVars = gnrt_variables(name, shape)
         return BVars
         
     def add_binary_variable(self, name:str):
@@ -99,6 +113,7 @@ class ConstrainedBinaryOptimization(Model):
             return None
         self.variables.append(var)
         self.variables_idx[name] = self.current_var_idx
+        self.current_var_idx += 1
         return var
     def add_constraint(self, expr):
         """
@@ -106,12 +121,12 @@ class ConstrainedBinaryOptimization(Model):
 
         Args:
             expr : A string representing a linear expression with variables and coefficients, followed by an equality or inequality sign.
-                   e.g., '2*x0 + 3*x1 + 3*x2 == 1'.
+                   e.g., '2*x_0 + 3*x_1 + 3*x_2 == 1'.
         """
-        ## extract the coefficients and the variables from the expression like 2*x0 + 3*x1 + 3*x2 == 1
+        ## extract the coefficients and the variables from the expression like 2*x_0 + 3*x_1 + 3*x_2 == 1
         print(expr)
         coefficients = np.zeros(len(self.variables) + 1)
-        ## parse the expression:2*x0 + 3*x1 + 3*x2 == 1
+        ## parse the expression:2*x_0 + 3*x_1 + 3*x_2 == 1
         for sign,term in split_expr(expr.split('==')[0]):
             sign = 1 if sign == '+' else -1
             if '*' in term:
@@ -129,7 +144,7 @@ class ConstrainedBinaryOptimization(Model):
         """add one linear constraint to the problem
 
         Args:
-            coefficients (Iterable): [a0, a1,..., a(n-1), b] represents a0*x0 + a1*x1 + ... + a(n-1)*x(n-1) == b
+            coefficients (Iterable): [a_0, a_1,..., a_n-1, b] represents a_0*x_0 + a_1*x_1 + ... + a_n-1*x_n-1 == b
         """
         assert len(coefficients) == 1 + len(self.variables)
         self.constraints.append(coefficients)
@@ -138,7 +153,7 @@ class ConstrainedBinaryOptimization(Model):
         """add the objective function to the problem
 
         Args:
-            coefficients (Iterable): [c0, c1,..., c(n-1)] represents c0*x0 + c1*x1 + ... + c(n-1)*x(n-1)
+            coefficients (Iterable): [c_0, c_1,..., c_n-1] represents c_0*x_0 + c_1*x_1 + ... + c_n-1*x_n-1
         """
         self.linear_objective = coefficients
 
