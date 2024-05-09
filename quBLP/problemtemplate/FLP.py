@@ -19,7 +19,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         """ a facility location problem
 
         Args:
-            n (int): number of facility
+            n (int): number of facilities
             m (int): number of demand point
             c (Matrix[m,n]): c_{i,j} : the cost for demand i to facility j
             f (Vector[n]): f_j: the building cost for facility j
@@ -48,7 +48,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         n = self.n
         m = self.m
         total_rows = n * m + m
-        total_columns = n + 2 * (m * n) + 1
+        total_columns = self.num_variables + 1
         matrix = np.zeros((total_rows, total_columns))
         for i in range(m):
             for j in range(n):
@@ -103,7 +103,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         for i in range(self.m):
             for j in range(self.n):
                 self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
-        return np.nonzero([x.x for x in self.variables])[0]
+        return [x.x for x in self.variables]
 
     def objectivefunc(self):
         def objective(variables:Iterable):

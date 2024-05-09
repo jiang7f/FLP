@@ -186,13 +186,13 @@ class ConstrainedBinaryOptimization(Model):
         for i in range(1 << len(self.variables)):
             bitstr = [int(j) for j in list(bin(i)[2:].zfill(len(self.variables)))]
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
-                return np.nonzero(bitstr)[0]
+                return bitstr
         return
     def optimize(self, max_iter=30,learning_rate=0.1,num_layers=2):
         self.driver_bitstrs = self.get_driver_bitstr()
-        # print(f'driverstr:\n {self.driver_bitstrs}') #-
+        print(f'driverstr:\n {self.driver_bitstrs}') #-
         self.feasiable_state = self.get_feasible_solution()
-        # print(f'fsb_state:{self.feasiable_state}') #-
+        print(f'fsb_state:{self.feasiable_state}') #-
         best_solution,cost = solve(self.variables, self.objective, self.driver_bitstrs, self.feasiable_state, max_iter, learning_rate, num_layers)
         self.solution = best_solution
         self.objVal = cost

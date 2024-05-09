@@ -104,7 +104,7 @@ class TravelingSalesmanProblem(ConstrainedBinaryOptimization):
             for j in range(self.n):
                 self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         
-        return np.nonzero([x.x for x in self.variables])[0]
+        return [x.x for x in self.variables]
 
     def objectivefunc(self):
         def objective(variables:Iterable):

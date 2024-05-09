@@ -6,4 +6,4 @@ problem.add_constraint("x_0 + x_1 + x_2 + x_3 - x_4 == 3")
 def objective(x):
     return x[3]*10 +sum(x)
 problem.add_objective(objective)
-problem.optimize()
+problem.optimize(100, 0.1, 5)
