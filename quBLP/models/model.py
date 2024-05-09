@@ -173,7 +173,6 @@ class ConstrainedBinaryOptimization(Model):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
         # 如果不使用解析的解系, 则输入约束, 高斯消元求解
-        print(self.linear_constraints)
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)
         basic_vector = find_basic_solution(np.array(self.constraints)[:,:-1])
@@ -189,10 +188,12 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return np.nonzero(bitstr)[0]
         return
-    def optimize(self):
+    def optimize(self, max_iter=30,learning_rate=0.1,num_layers=2):
         self.driver_bitstrs = self.get_driver_bitstr()
+        # print(f'driverstr:\n {self.driver_bitstrs}') #-
         self.feasiable_state = self.get_feasible_solution()
-        best_solution,cost = solve(self.variables,self.objective,self.driver_bitstrs,self.feasiable_state)
+        # print(f'fsb_state:{self.feasiable_state}') #-
+        best_solution,cost = solve(self.variables, self.objective, self.driver_bitstrs, self.feasiable_state, max_iter, learning_rate, num_layers)
         self.solution = best_solution
         self.objVal = cost
         return best_solution

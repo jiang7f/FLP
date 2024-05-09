@@ -40,7 +40,7 @@
 - $x_{aj} + x_{bj} - y_{abj} = 0$ for all pair of adjacent graphs $(a, b)$ and $j = 1, \cdots, n$
 - $x_{ij}, y_{abj} \in\{0,1\} $
 
-**pending: ab可以表示成一个k(相邻边数) ,共有km个y.**  
+**pending: ab可以表示成一个k(相邻边数) ,共有km个y. 写代码的时候发现 $n^3$ qubit太多，所以按这个思路写的，公式表述待改**  
 ## 3. 旅行商问题 Traveling Salesman Problem (TSP)
 
 **变量**：

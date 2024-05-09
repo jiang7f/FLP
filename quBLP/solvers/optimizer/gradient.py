@@ -49,6 +49,7 @@ def adam_optimizer(params, cost_function, num_iter, learning_rate):
             if cost < best_cost:
                 best_cost = cost
                 best_params = params
+            # print(f'---- {best_params}') #-
     return best_params
 
 def train_gradient(num_params, cost_function, num_iter, learning_rate):
