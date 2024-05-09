@@ -1,7 +1,6 @@
 import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
-# 生成TSP问题约束矩阵
 class MaximumCliqueProblem(ConstrainedBinaryOptimization):
     """ a maximum clique problem is defined as
         **变量**:
@@ -23,7 +22,7 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         """ 
         Args:
             num_points (int): number of points
-            pairs_unconnected (List[Tuple[int, int]]): c[i] : the pair of unconnected points like (a, b)
+            pairs_unconnected (List[Tuple[int, int]]): the pair of unconnected points like (a, b)
         """
         super().__init__(fastsolve)
         self.num_points = num_points
@@ -43,9 +42,9 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         total_columns = self.num_variables + 1
         matrix = np.zeros((total_rows, total_columns))
         for k, (a, b) in enumerate(self.pairs_unconnected):
-            matrix[k, a] = 1
-            matrix[k, b] = 1
-            matrix[k, self.num_points + k] = 1
+            matrix[k, self.var_to_idex(self.X[a])] = 1
+            matrix[k, self.var_to_idex(self.X[b])] = 1
+            matrix[k, self.var_to_idex(self.Y[k])] = 1
         return matrix
     
     # def fast_solve_driver_bitstr(self):

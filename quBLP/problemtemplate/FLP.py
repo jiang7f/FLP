@@ -1,9 +1,8 @@
 import numpy as np
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization
-# 生成FLP问题约束矩阵
 class FacilityLocationProblem(ConstrainedBinaryOptimization):
-    """ a `facility location problem`, is defined as
+    """ a facility location problem is defined as
     .. math::
         min \sum_{i=1}^m \sum_{j=1}^n c_{i j} y_{i j}+\sum_{j=1}^n f_j x_j 
     
@@ -52,10 +51,11 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         matrix = np.zeros((total_rows, total_columns))
         for i in range(m):
             for j in range(n):
-                matrix[j * m + i, j] = -1
-                matrix[j * m + i, n + i * n + j] = 1
-                matrix[j * m + i, n + n * m + i * n + j] = 1
-                matrix[n * m + i, n + n * i + j] = 1
+                matrix[n * m + i, self.var_to_idex(self.Y[i][j])] = 1
+                # y_ij + z_ij - x_j = 1
+                matrix[j * m + i, self.var_to_idex(self.Y[i][j])] = 1
+                matrix[j * m + i, self.var_to_idex(self.Z[i][j])] = 1
+                matrix[j * m + i, self.var_to_idex(self.X[j])] = -1
             matrix[n * m + i, total_columns - 1] = 1
         return matrix
     

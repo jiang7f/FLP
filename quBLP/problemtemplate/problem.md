@@ -37,8 +37,8 @@
 
 **等式约束**:
 - $\sum_{j = 1}^n x_{ij} = 1 \text{ for all } i = 1, \cdots, m$
-- $x_{a_kj} + x_{b_kj} - y_{kj} = 0$ for all pair of adjacent graphs $(a_k, b_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
-- $x_{ij}, y_{kj} \in\{0,1\} $
+- $x_{a_kj} + x_{b_kj} - y_{jk} = 0$ for all pair of adjacent graphs $(a_k, b_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
+- $x_{ij}, y_{jk} \in\{0,1\} $
 
 ### 3. 最大团问题 Maximum Clique Problem (MCP)
 
@@ -59,15 +59,22 @@
 
 ## 4. 集合覆盖问题 Set Cover Problem (SCP)
 
-**变量**：
+**变量**:
 - 假设有 m 个集合, n 个元素
 - $x_i \text{ for } i = 1, \cdots, m$, 当选择集合 $i$ 时 $x_i = 1$, 否则为 $0$
 
-**目标函数**：
+**目标函数**:
 - $\min \sum_{i=1}^m x_i$
 
-**约束**：
-- $\sum_{j: e_i \in S_j} x_j \geq 1  对每个元素  e_i ，其中  S_j  是包含元素  e_i  的集合$
+**约束**:
+- $\sum_{i: e_j \in S_i} x_i \geq 1$ for all $j = 1, \cdots, n$.  
+  即每个元素 $e_j$ 至少被一个集合覆盖
+- $x_{i} \in\{0,1\} $  
+
+**等式约束**:
+- 没想好怎么表述元素属于多少个集合, 写了len
+- $\sum_{i: e_j \in S_i} x_i - \sum_{k=1}^{len(e_j \in) - 1}y_{jk}= 1$ for all $j = 1, \cdots, n$. 
+- $x_{i}, y_{jk} \in\{0,1\} $   
 
 ## 5. 旅行商问题 Traveling Salesman Problem (TSP)
 
