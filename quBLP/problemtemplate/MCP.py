@@ -44,7 +44,7 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         for k, (a, b) in enumerate(self.pairs_unconnected):
             matrix[k, self.var_to_idex(self.X[a])] = 1
             matrix[k, self.var_to_idex(self.X[b])] = 1
-            matrix[k, self.var_to_idex(self.Y[k])] = 1
+            matrix[k, self.var_to_idex(self.Y[k])] = -1
         return matrix
     
     # def fast_solve_driver_bitstr(self):

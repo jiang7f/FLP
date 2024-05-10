@@ -1,4 +1,3 @@
-# pending
 import numpy as np
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization

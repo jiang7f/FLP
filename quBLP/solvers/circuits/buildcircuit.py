@@ -74,6 +74,7 @@ class pennylaneCircuit:
         probs = bitstrs[bitstrsindex]
         maxprobidex = np.argmax(probs)
         collapse_variable_values = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
+        print(f'max_prob: {probs[maxprobidex]:.2%}') #-
         print(f'collapse_variable_values: {collapse_variable_values}') #-
         return collapse_variable_values[maxprobidex]
 
