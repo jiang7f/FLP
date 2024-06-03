@@ -61,13 +61,25 @@ class ConstrainedBinaryOptimization(Model):
         self.variables = []
         self.constraints = []
         self.linear_objective_vector = []
+        self.nolinear_objective_matrix = []
         self.objective = None
         self.variables_idx = {}
         self.current_var_idx = 0
         self.variable_name_set = set()
         self.optimization_method_type = 'commute'
         self.penalty_lambda = 0
+        self.collapse_state = None
+        self.probs = None
+        self.optimization_direction = None
         pass
+
+    def set_optimization_direction(self, dir):
+        self.optimization_direction = 1 if dir == 'max' else -1 if dir == 'min' else None
+
+    def find_state_probability(self, state):
+        index = self.collapse_state.index(state)
+        return self.probs[index]
+    
     def set_optimization_method_type(self, type='commute', penalty_lambda = 0):
         self.optimization_method_type = type
         self.penalty_lambda = penalty_lambda
@@ -189,8 +201,6 @@ class ConstrainedBinaryOptimization(Model):
     def linear_constraints(self):
         return []
     def get_driver_bitstr(self):
-        for cstrt in self.linear_constraints:
-            self._add_linear_constraint(cstrt)
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
         # 如果不使用解析的解系, 高斯消元求解
@@ -207,38 +217,38 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, max_iter=30,learning_rate=0.1,num_layers=2):
+    def optimize(self, max_iter=30, learning_rate=0.1, num_layers=2) -> None: 
         # 优化类型，是个数字
-        optimization_method=[self.optimization_method_type]
+        optimization_method=[self.optimization_method_type, [self.linear_objective_vector, self.nolinear_objective_matrix]]
+        print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
+        print(f'nolinear_objective_matrix:\n {self.nolinear_objective_matrix}') #-
         objective = None
         #$
         if self.optimization_method_type == 'penalty':
-            optimization_method.append(self.penalty_lambda)
+            optimization_method.extend([self.penalty_lambda, np.array(self.constraints)])
             print(f'penalty_lambda:\n {self.penalty_lambda}') #-
-            optimization_method.append(self.linear_objective_vector)
-            print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
-            optimization_method.append(np.array(self.constraints))
             print(f'constraints:\n {self.constraints}') #-
             objective = self.objective_penalty
         elif self.optimization_method_type == 'cyclic':
-            # optimization_method.append(self.penalty_lambda)
-            # print(f'penalty_lambda:\n {self.penalty_lambda}') #-
-            # optimization_method.append(self.linear_objective_vector)
-            # print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
-            # optimization_method.append(np.array(self.constraints))
-            # print(f'constraints:\n {self.constraints}') #-
-            # objective = self.objective_cyclic
+            optimization_method.extend([self.penalty_lambda, np.array(self.constraints)])
+            print(f'penalty_lambda:\n {self.penalty_lambda}') #-
+            print(f'constraints:\n {self.constraints}') #-
+            objective = self.objective_cyclic
             pass
         elif self.optimization_method_type == 'commute':
             driver_bitstrs = self.get_driver_bitstr()
             optimization_method.append(driver_bitstrs)
             print(f'driverstr:\n {driver_bitstrs}') #-
             objective = self.objective_commute
-
+  
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
-        best_solution,cost = solve(max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method)
-        self.solution = best_solution
-        self.objVal = cost
-        return best_solution
+        collapse_state, probs = solve(max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction)
+        # 输出最大概率解
+        maxprobidex = np.argmax(probs)
+        max_prob_solution = collapse_state[maxprobidex]
+        cost = objective(max_prob_solution)
+        print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+        self.collapse_state=collapse_state
+        self.probs=probs
 

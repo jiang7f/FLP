@@ -38,14 +38,20 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         self.Y = self.add_binary_variables('y', [m, n])
         self.Z = self.add_binary_variables('z', [m, n])
 
+        self.objective_penalty = self.objective_func('penalty')
+        self.objective_cyclic = self.objective_func('cyclic')
+        self.objective_commute = self.objective_func('commute')
 
-        self.objective_penalty = self.objective_func_penalty()
-        self.objective_commute = self.objective_func_commute()
         self.feasible_solution = self.get_feasible_solution()
         # 直接加目标函数表达式
         import itertools
         self._add_linear_objective(list(itertools.chain(f, *c)))
-        print(list(itertools.chain(f, *c)))
+        print(list(itertools.chain(f, *c))) #+
+        # 约束放到 self.constraints 里
+        for cstrt in self.linear_constraints:
+            self._add_linear_constraint(cstrt)
+        # 设定优化方向
+        self.set_optimization_direction('min')
         pass
     @property
     def linear_constraints(self):
@@ -110,26 +116,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         return [x.x for x in self.variables]
 
-    def objective_func_commute(self):
-        def objective(variables:Iterable):
-            """ the objective function of the facility location problem
-
-            Args:
-                variables (Iterable):  the list of value of variables
-
-            Return:
-                cost
-            """
-            cost = 0
-            for i in range(self.m):
-                for j in range(self.n):
-                    cost += self.c[i][j] * variables[self.var_to_idex(self.Y[i][j])]
-            for j in range(self.n):
-                cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
-            return cost
-        return objective
-
-    def objective_func_penalty(self):
+    def objective_func(self, optimization_method):
         def objective(variables:Iterable):
             cost = 0
             for i in range(self.m):
@@ -137,15 +124,23 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                     cost += self.c[i][j] * variables[self.var_to_idex(self.Y[i][j])]
             for j in range(self.n):
                 cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
+            # commute 只需要目标函数两项
+            if optimization_method == 'commute':
+                return -1 * self.optimization_direction * cost
             for i in range(self.m):
                 t = 0
                 for j in range(self.n):
                     t += variables[self.var_to_idex(self.Y[i][j])]
                 cost += self.penalty_lambda * (t - 1)**2
+            # cyclic 多包含一项∑=x
+            if optimization_method == 'cyclic':
+                return -1 * self.optimization_direction * cost
             for i in range(self.m):
                 for j in range(self.n):
                     cost += self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
-            return cost
+            # penalty 所有约束都惩罚施加
+            if optimization_method == 'penalty':
+                return -1 * self.optimization_direction * cost
         return objective
     
     
