@@ -4,6 +4,7 @@ from ..models import ConstrainedBinaryOptimization
 class MaxCutProblem(ConstrainedBinaryOptimization):
     def __init__(self, num_points: int, pairs_connected: List[Tuple[int, int]], fastsolve=False) -> None:
         super().__init__(fastsolve)
+        self.set_optimization_direction('max')
         self.num_points = num_points
         self.pairs_connected = pairs_connected
         self.num_pairs = len(pairs_connected)
@@ -13,8 +14,7 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
 
         self.objective_penalty = self.objectivefunc()
         self.feasible_solution = self.get_feasible_solution()
-        
-        self.set_optimization_direction('min')
+
         self.nolinear_objective_matrix = [self.generate_Hp]
         pass
 
@@ -56,7 +56,7 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
                 xj = variables[self.var_to_idex(self.X[j])]
                 cost += xi * (1 - xj) + xj * (1 - xi)
             # cost -= self.penalty_lambda*(variables[self.var_to_idex(self.X[0])] + variables[self.var_to_idex(self.X[2])]-2)**2
-            return -1 * self.optimization_direction * cost
+            return self.cost_dir * cost
         return objective
 
         

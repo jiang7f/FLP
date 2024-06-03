@@ -71,10 +71,13 @@ class ConstrainedBinaryOptimization(Model):
         self.collapse_state = None
         self.probs = None
         self.optimization_direction = None
+        self.cost_dir = 1
         pass
 
     def set_optimization_direction(self, dir):
-        self.optimization_direction = 1 if dir == 'max' else -1 if dir == 'min' else None
+        assert dir in ['min', 'max']
+        self.optimization_direction = dir
+        self.cost_dir = 1 if dir == 'min' else -1 if dir == 'max' else None
 
     def find_state_probability(self, state):
         index = self.collapse_state.index(state)

@@ -24,6 +24,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             f (Vector[n]): f_j: the building cost for facility j
         """
         super().__init__(fastsolve)
+        self.set_optimization_direction('min')
         ## 设施点个数
         self.n = n
         ## 需求点个数
@@ -51,7 +52,6 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)
         # 设定优化方向
-        self.set_optimization_direction('min')
         pass
     @property
     def linear_constraints(self):
@@ -126,7 +126,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
             # commute 只需要目标函数两项
             if optimization_method == 'commute':
-                return -1 * self.optimization_direction * cost
+                return self.cost_dir * cost
             for i in range(self.m):
                 t = 0
                 for j in range(self.n):
@@ -134,13 +134,13 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 cost += self.penalty_lambda * (t - 1)**2
             # cyclic 多包含一项∑=x
             if optimization_method == 'cyclic':
-                return -1 * self.optimization_direction * cost
+                return self.cost_dir * cost
             for i in range(self.m):
                 for j in range(self.n):
                     cost += self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
             # penalty 所有约束都惩罚施加
             if optimization_method == 'penalty':
-                return -1 * self.optimization_direction * cost
+                return self.cost_dir * cost
         return objective
     
     
