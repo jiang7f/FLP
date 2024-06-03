@@ -19,42 +19,72 @@ def plus_minus_gate_sequence_to_unitary(s):
     matrix[map_num, scale - 1 - map_num] = 1
     return matrix
 
+# num_qubits, num_layers, objective, feasiable_state, optimization_method
 class pennylaneCircuit:
-    def __init__(self, num_qubits,num_layers):
+    def __init__(self, num_qubits, num_layers, objective, feasiable_state, optimization_method):
         self.num_qubits = num_qubits
         self.num_layers = num_layers
-    
-    def build_unitary_circuit(self, feasiable_state, hd_bitsList, objective_function, Hp=None):
-        return self._create_circuit(feasiable_state, hd_bitsList, objective_function, Hp, is_decompose=False)
+        self.objective = objective
+        self.feasiable_state = feasiable_state
+        self.optimization_method = optimization_method
 
-    def decompose_circuit(self, feasiable_state, hd_bitsList, objective_function, Hp=None):
-        return self._create_circuit(feasiable_state, hd_bitsList, objective_function, Hp, is_decompose=True)
-
-    def _create_circuit(self,feasiable_state,hd_bitsList,objective_function,Hp=None, is_decompose=False):
+    def create_circuit(self, is_decompose=False):
         num_qubits = self.num_qubits
         dev = qml.device("default.qubit", wires=num_qubits)
         @qml.qnode(dev)
         def circuit(params):
-            for i in np.nonzero(feasiable_state)[0]:
-                qml.PauliX(i)
-            depth  = self.num_layers
-            if Hp:
-                hpparams = params[:depth]
-                hdparams = params[depth:]
-                assert len(hdparams) == depth
-            else:
-                hdparams = params
-                assert len(hdparams) == depth
-            for dp in range(depth):
-                # apply_problem_hamitonian_pennylane(num_qubits,hpparams[dp])
-                for bitstrings in range(len(hd_bitsList)):
-                    hd_bits = hd_bitsList[bitstrings]
-                    nonzero_indices = np.nonzero(hd_bits)[0]
-                    nonzerobits = hd_bits[nonzero_indices]
+            num_qubits = self.num_qubits
+            num_layers = self.num_layers
+            if self.optimization_method[0] == 'penalty':
+                pnt_lbd = self.optimization_method[1]
+                Ho_vector = self.optimization_method[2]
+                constraints = self.optimization_method[3]
+                def add_in_target(num_qubits, target_qubit, gate):
+                    H = np.eye(2 ** (target_qubit))
+                    H = np.kron(H, gate)
+                    H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
+                    return H
+                for i in range(num_qubits):
+                    qml.Hadamard(i)
+                Ho_params = params[:num_layers]
+                Hd_params = params[num_layers:]
+                assert len(Hd_params) == num_layers
+                for layer in range(num_layers):
                     if is_decompose:
-                        get_driver_component_pennylane(num_qubits, hdparams[dp], nonzerobits, nonzero_indices)
+                        pass
                     else:
-                        qml.QubitUnitary(expm(-1j * hdparams[dp] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
+                        #$ 目标函数
+                        Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, Ho_vi in enumerate(Ho_vector):
+                            Ho += Ho_vi * add_in_target(num_qubits, index, (np.eye(2) - np.array([[1, 0],[0, -1]]))/2)
+                        # 惩罚项 Hamiltonian penalty
+                        for penalty_mi in constraints:
+                            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                            for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                                H_pnt += penalty_vi * add_in_target(num_qubits, index, (np.eye(2) - np.array([[1, 0],[0, -1]]))/2)
+                            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                            Ho += pnt_lbd * H_pnt @ H_pnt
+                        # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                        qml.QubitUnitary(expm(-1j * Ho_params[layer] * -Ho), wires=range(num_qubits))
+                    # Rx 驱动哈密顿量
+                    for i in range(num_qubits):
+                        qml.RX(Hd_params[layer],i)
+            elif self.optimization_method[0] == 'commute':
+                Hd_bitsList = self.optimization_method[1]
+                for i in np.nonzero(self.feasiable_state)[0]:
+                    qml.PauliX(i)
+                Hd_params = params
+                assert len(Hd_params) == num_layers
+                for layer in range(num_layers):
+                    for bitstrings in range(len(Hd_bitsList)):
+                        hd_bits = Hd_bitsList[bitstrings]
+                        nonzero_indices = np.nonzero(hd_bits)[0]
+                        nonzerobits = hd_bits[nonzero_indices]
+                        if is_decompose:
+                            pass
+                            # get_driver_component_pennylane(num_qubits, Hd_params[layer], nonzerobits, nonzero_indices)
+                        else:
+                            qml.QubitUnitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
             return qml.probs(wires=range(num_qubits))
         self.inference_circuit = circuit
         def costfunc(params):
@@ -64,7 +94,7 @@ class pennylaneCircuit:
             variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
             costs = 0
             for value, prob in zip(variablevalues, probs):
-                costs += objective_function(value) * prob
+                costs += self.objective(value) * prob
             return costs
         return costfunc
 
@@ -78,15 +108,9 @@ class pennylaneCircuit:
         print(f'collapse_variable_values: {collapse_variable_values}') #-
         return collapse_variable_values[maxprobidex]
 
-    
 
 
 
-    
-
-   
-    
-    
 class QiskitCircuit:
     def __init__(self, n, p):
         self.n = n
@@ -108,13 +132,13 @@ class QiskitCircuit:
         for i in ini_states:
             qc.x(i)
         if len(beta) ==0:
-            for dp in range(depth):
+            for layer in range(depth):
                 for gate_hdi, ind in zip(gate_hds, nonzero_indices):
-                    qc.unitary(expm(-1j * gamma[dp] * gate_hdi), (num_qubits - 1 - i for i in ind))
-        for dp in range(depth):
-            qc.unitary(expm(-1j * beta[dp] * Hp), range(num_qubits))
+                    qc.unitary(expm(-1j * gamma[layer] * gate_hdi), (num_qubits - 1 - i for i in ind))
+        for layer in range(depth):
+            qc.unitary(expm(-1j * beta[layer] * Hp), range(num_qubits))
             for gate_hdi, ind in zip(gate_hds, nonzero_indices):
-                qc.unitary(expm(-1j * gamma[dp] * gate_hdi), (num_qubits - 1 - i for i in ind))
+                qc.unitary(expm(-1j * gamma[layer] * gate_hdi), (num_qubits - 1 - i for i in ind))
         qc.measure_all()
         return qc
     

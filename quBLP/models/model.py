@@ -60,12 +60,18 @@ class ConstrainedBinaryOptimization(Model):
         self.fastsolve = fastsolve
         self.variables = []
         self.constraints = []
-        self.linear_objective = []
+        self.linear_objective_vector = []
         self.objective = None
         self.variables_idx = {}
         self.current_var_idx = 0
         self.variable_name_set = set()
+        self.optimization_method_type = 'commute'
+        self.penalty_lambda = 0
         pass
+    def set_optimization_method_type(self, type='commute', penalty_lambda = 0):
+        self.optimization_method_type = type
+        self.penalty_lambda = penalty_lambda
+
     def add_binary_variables(self, name:str, shape:List[int]):
         """ Add `num` 0-1 variables. 
         
@@ -150,14 +156,27 @@ class ConstrainedBinaryOptimization(Model):
         """
         assert len(coefficients) == 1 + len(self.variables)
         self.constraints.append(coefficients)
-    
+
+    def add_objective(self, expr):
+        coefficients = np.zeros(len(self.variables) + 1)
+        for sign,term in split_expr(expr.split('==')[0]):
+            sign = 1 if sign == '+' else -1
+            if '*' in term:
+                coefficient,variable = term.split('*')
+                coefficients[self.variables_idx[variable]] = sign*int(coefficient)
+            else:
+                variable = term
+                coefficients[self.variables_idx[variable]] = sign
+        coefficients[-1]= int(expr.split('==')[1])
+        print(coefficients)
+        self._add_linear_objective(coefficients)
+
     def _add_linear_objective(self, coefficients: Iterable):
         """add the objective function to the problem
-
         Args:
             coefficients (Iterable): [c_0, c_1,..., c_n-1] represents c_0*x_0 + c_1*x_1 + ... + c_n-1*x_n-1
         """
-        self.linear_objective = coefficients
+        self.linear_objective_vector = coefficients
 
     def add_eq_constraint(self, coefficients: Iterable, variable):
         """_summary_
@@ -170,11 +189,11 @@ class ConstrainedBinaryOptimization(Model):
     def linear_constraints(self):
         return []
     def get_driver_bitstr(self):
-        if self.fastsolve:
-            return self.fast_solve_driver_bitstr()
-        # 如果不使用解析的解系, 则输入约束, 高斯消元求解
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)
+        if self.fastsolve:
+            return self.fast_solve_driver_bitstr()
+        # 如果不使用解析的解系, 高斯消元求解
         basic_vector = find_basic_solution(np.array(self.constraints)[:,:-1])
         return basic_vector
     def add_objective(self,objectivefunc):
@@ -189,11 +208,36 @@ class ConstrainedBinaryOptimization(Model):
                 return bitstr
         return
     def optimize(self, max_iter=30,learning_rate=0.1,num_layers=2):
-        self.driver_bitstrs = self.get_driver_bitstr()
-        print(f'driverstr:\n {self.driver_bitstrs}') #-
+        # 优化类型，是个数字
+        optimization_method=[self.optimization_method_type]
+        objective = None
+        #$
+        if self.optimization_method_type == 'penalty':
+            optimization_method.append(self.penalty_lambda)
+            print(f'penalty_lambda:\n {self.penalty_lambda}') #-
+            optimization_method.append(self.linear_objective_vector)
+            print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
+            optimization_method.append(np.array(self.constraints))
+            print(f'constraints:\n {self.constraints}') #-
+            objective = self.objective_penalty
+        elif self.optimization_method_type == 'cyclic':
+            # optimization_method.append(self.penalty_lambda)
+            # print(f'penalty_lambda:\n {self.penalty_lambda}') #-
+            # optimization_method.append(self.linear_objective_vector)
+            # print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
+            # optimization_method.append(np.array(self.constraints))
+            # print(f'constraints:\n {self.constraints}') #-
+            # objective = self.objective_cyclic
+            pass
+        elif self.optimization_method_type == 'commute':
+            driver_bitstrs = self.get_driver_bitstr()
+            optimization_method.append(driver_bitstrs)
+            print(f'driverstr:\n {driver_bitstrs}') #-
+            objective = self.objective_commute
+
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
-        best_solution,cost = solve(self.variables, self.objective, self.driver_bitstrs, self.feasiable_state, max_iter, learning_rate, num_layers)
+        best_solution,cost = solve(max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method)
         self.solution = best_solution
         self.objVal = cost
         return best_solution

@@ -27,7 +27,7 @@ def gradient_by_param_shift(params, cost_function):
         gradients[i] = (forward - backward)/(2*shift)
     return gradients
 
-def adam_optimizer(params, cost_function, num_iter, learning_rate):
+def adam_optimizer(params, cost_function, num_iter, learning_rate, num_consecutive_iter = 5, early_stopping_threshold=0.0001):
     beta1 = 0.9
     beta2 = 0.999
     eps = 1e-8
@@ -35,6 +35,8 @@ def adam_optimizer(params, cost_function, num_iter, learning_rate):
     v = np.zeros(len(params))
     best_params = params
     best_cost = cost_function(params)
+    prev_cost = best_cost  # 跟踪先前成本
+    consecutive_no_improvement = 0  # 没有明显提升的连续迭代次数
     with tqdm(total=num_iter) as pbar:
         for i in range(num_iter):
             gradients = gradient_by_param_shift(params, cost_function)
@@ -49,7 +51,14 @@ def adam_optimizer(params, cost_function, num_iter, learning_rate):
             if cost < best_cost:
                 best_cost = cost
                 best_params = params
-            # print(f'---- {best_params}') #-
+            if abs(prev_cost - cost) < early_stopping_threshold:
+                consecutive_no_improvement += 1
+                if consecutive_no_improvement >= num_consecutive_iter:  # consecutive iterations
+                    print("Early stopping: Loss change is below threshold.")
+                    break
+            else:
+                consecutive_no_improvement = 0
+                prev_cost = cost
     return best_params
 
 def train_gradient(num_params, cost_function, num_iter, learning_rate):

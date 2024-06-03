@@ -68,16 +68,14 @@ Hp = generate_Hp(n, m, d, g)
 import sys
 sys.path.append('../../')
 import z_library.linear_system as ls
-Cons = np.array([[-1, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-              [-1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
-              [0, -1, 0, 1, 0, 0, 0, 1, 0, 0],
-              [0, -1, 0, 0, 0, 1, 0, 0, 0, 1],
-              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-              [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-              [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-              [0, 0, 0, 0, 1, 1, 0, 0, 0, 0]])
+Cons = np.array([[-1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                 [-1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                 [-1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+                 [0, -1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                 [0, -1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+                 [0, -1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+                 [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0]])
 u = ls.find_basic_solution(Cons)
 v = np.where(u == 1, 1, 0)
 w = np.where(u == -1, 1, 0)
@@ -89,7 +87,7 @@ def build_circ(params):
   qc = QuantumCircuit(num_qubits)
   beta = params[:depth]
   gamma = params[depth:]
-  for i in [1,3,4,6,8,9]:
+  for i in [12, 10, 8, 6]:
     qc.x(i)
   for dp in range(depth):
     qc.unitary(expm(-1j * beta[dp] * Hp), range(num_qubits)) # transpile
