@@ -2,7 +2,7 @@
 import numpy as np
 from typing import Iterable, List
 from ..utils.linear_system import find_basic_solution
-from ..utils.parseexpr import split_expr
+from ..utils.parse_expr import split_expr
 from ..solvers import solve
 class Model:
     def __init__(self) -> None:
@@ -71,7 +71,7 @@ class ConstrainedBinaryOptimization(Model):
         self.collapse_state = None
         self.probs = None
         self.optimization_direction = None
-        self.cost_dir = 1
+        self.cost_dir = 0
         pass
 
     def set_optimization_direction(self, dir):
