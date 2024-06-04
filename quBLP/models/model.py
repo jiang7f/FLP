@@ -1,5 +1,6 @@
 ## This file defines a problem of binary constraint optimization 
 import numpy as np
+import itertools
 from typing import Iterable, List
 from ..utils.linear_system import find_basic_solution
 from ..utils.parse_expr import split_expr
@@ -59,7 +60,9 @@ class ConstrainedBinaryOptimization(Model):
         """
         self.fastsolve = fastsolve
         self.variables = []
-        self.constraints = []
+        self.constraints_for_cyclic = [] # 用于存∑=x
+        self.constraints_for_others = []
+        # self.constraints yeld by @property
         self.linear_objective_vector = []
         self.nolinear_objective_matrix = []
         self.objective = None
@@ -170,8 +173,15 @@ class ConstrainedBinaryOptimization(Model):
             coefficients (Iterable): [a_0, a_1,..., a_n-1, b] represents a_0*x_0 + a_1*x_1 + ... + a_n-1*x_n-1 == b
         """
         assert len(coefficients) == 1 + len(self.variables)
-        self.constraints.append(coefficients)
-
+        if set(coefficients[:-1]).issubset({0, 1}):
+            assert coefficients[-1] >= 0
+            self.constraints_for_cyclic.append(coefficients)
+        else:
+            self.constraints_for_others.append(coefficients)
+    @property
+    def constraints(self):
+        return np.array(self.constraints_for_cyclic + self.constraints_for_others)
+    
     def add_objective(self, expr):
         coefficients = np.zeros(len(self.variables) + 1)
         for sign,term in split_expr(expr.split('==')[0]):
@@ -200,6 +210,7 @@ class ConstrainedBinaryOptimization(Model):
             coefficients (Iterable): _description_
         """
         pass
+
     @property
     def linear_constraints(self):
         return []
@@ -207,7 +218,7 @@ class ConstrainedBinaryOptimization(Model):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
         # 如果不使用解析的解系, 高斯消元求解
-        basic_vector = find_basic_solution(np.array(self.constraints)[:,:-1])
+        basic_vector = find_basic_solution(self.constraints[:,:-1])
         return basic_vector
     def add_objective(self,objectivefunc):
         self.objective = objectivefunc
@@ -220,7 +231,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, max_iter=30, learning_rate=0.1, num_layers=2) -> None: 
+    def optimize(self, max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False) -> None: 
         # 优化类型，是个数字
         optimization_method=[self.optimization_method_type, [self.linear_objective_vector, self.nolinear_objective_matrix]]
         print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
@@ -228,14 +239,15 @@ class ConstrainedBinaryOptimization(Model):
         objective = None
         #$
         if self.optimization_method_type == 'penalty':
-            optimization_method.extend([self.penalty_lambda, np.array(self.constraints)])
+            optimization_method.extend([self.penalty_lambda, self.constraints])
             print(f'penalty_lambda:\n {self.penalty_lambda}') #-
             print(f'constraints:\n {self.constraints}') #-
             objective = self.objective_penalty
         elif self.optimization_method_type == 'cyclic':
-            optimization_method.extend([self.penalty_lambda, np.array(self.constraints)])
+            optimization_method.extend([self.penalty_lambda, self.constraints_for_cyclic, self.constraints_for_others])
             print(f'penalty_lambda:\n {self.penalty_lambda}') #-
-            print(f'constraints:\n {self.constraints}') #-
+            print(f'constraints_for_cyclic:\n {self.constraints_for_cyclic}') #-
+            print(f'constraints_for_others:\n {self.constraints_for_others}') #-
             objective = self.objective_cyclic
             pass
         elif self.optimization_method_type == 'commute':
@@ -246,7 +258,7 @@ class ConstrainedBinaryOptimization(Model):
   
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
-        collapse_state, probs = solve(max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction)
+        collapse_state, probs = solve(max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction, need_draw)
         # 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]

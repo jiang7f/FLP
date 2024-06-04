@@ -1,1 +1,1 @@
-from .buildcircuit import pennylaneCircuit,QiskitCircuit
+from .build_circuit import PennylaneCircuit, QiskitCircuit

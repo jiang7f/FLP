@@ -1,6 +1,6 @@
-from .FLP import FacilityLocationProblem
-from .GCP import GraphColoringProblem
-from .MCP import MaximumCliqueProblem
-from .SCP import SetCoverProblem
-from .MaxCut import MaxCutProblem
+from .facility_location_problem import FacilityLocationProblem
+from .graph_coloring_problem import GraphColoringProblem
+from .maximum_clique_problem import MaximumCliqueProblem
+from .set_cover_problem import SetCoverProblem
+from .max_cut_problem import MaxCutProblem
 # from .TSP import TravelingSalesmanProblem

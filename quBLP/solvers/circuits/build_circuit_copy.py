@@ -32,6 +32,7 @@ class PennylaneCircuit:
         self.Ho_dir =  1 if optimization_direction == 'max' else -1
 
     def create_circuit(self, is_decompose=False):
+        self.inference_circuit = None
         num_qubits = self.num_qubits
         num_layers = self.num_layers
         optimization_method = self.optimization_method[0] 
@@ -48,117 +49,129 @@ class PennylaneCircuit:
                 j = (i + 1) % n
                 Hd += (add_in_target(n, i, gate_x) @ add_in_target(n, j, gate_x) + add_in_target(n, i, gate_y) @ add_in_target(n, j, gate_y))
             return -Hd 
+        # 提前整理好用到的变量，防止重复计算（如cyclic_qubit_set）
         if optimization_method == 'penalty':
             self.pnt_lbd = self.optimization_method[2]
             self.constraints = self.optimization_method[3]
+            self.inference_circuit = circuit_penalty
         elif optimization_method == 'cyclic':
             self.pnt_lbd = self.optimization_method[2]
             self.constraints_for_cyclic = self.optimization_method[3]
             self.constraints_for_others = self.optimization_method[4]
             self.cyclic_qubit_set = set([item for sublist in self.constraints_for_cyclic for item in np.nonzero(sublist[:-1])[0]])
             self.others_uqbit_set = set(range(num_qubits)) - self.cyclic_qubit_set
+            self.inference_circuit = circuit_cyclic
         elif optimization_method == 'commute':
             self.Hd_bitsList = self.optimization_method[2]
-
+            self.inference_circuit = circuit_commute
+        
         @qml.qnode(dev)
-        def circuit(params):
+        def circuit_penalty(params):
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
-            if optimization_method == 'penalty':
-                pnt_lbd = self.pnt_lbd
-                constraints = self.constraints
-                for i in range(num_qubits):
-                    # if self.op_dir == 'min':
-                    #     qml.PauliX(i)
-                    qml.Hadamard(i)
-                for layer in range(num_layers):
-                    if is_decompose:
-                        pass
-                    else:
-                        #$ 目标函数
-                        Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, Ho_vi in enumerate(Ho_vector):
-                            Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        for index, Ho_mi in enumerate(Ho_matrix):
-                            Ho += Ho_mi
-                        # 惩罚项 Hamiltonian penalty
-                        for penalty_mi in constraints:
-                            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                            for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                            Ho += pnt_lbd * H_pnt @ H_pnt
-                        # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                        qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
-                    # Rx 驱动哈密顿量
-                    for i in range(num_qubits):
-                        qml.RX(Hd_params[layer],i)
-            elif optimization_method == 'cyclic':
-                pnt_lbd = self.pnt_lbd
-                constraints_for_cyclic = self.constraints_for_cyclic
-                constraints_for_others = self.constraints_for_others
-                # 找到需要用cyclic的量子位设定可行解，其余照常用H门
-                cyclic_qubit_set = self.cyclic_qubit_set
-                others_uqbit_set = self.others_uqbit_set
-                for i in set(np.nonzero(self.feasiable_state)[0]).intersection(cyclic_qubit_set):
-                    qml.PauliX(i)
-                for i in others_uqbit_set:
-                    qml.Hadamard(i)                    
-                for layer in range(num_layers):
-                    if is_decompose:
-                        pass
-                    else:
-                        #$ 目标函数
-                        Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, Ho_vi in enumerate(Ho_vector):
-                            Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        for index, Ho_mi in enumerate(Ho_matrix):
-                            Ho += Ho_mi
-                        # constraints_for_others 惩罚项
-                        for penalty_mi in constraints_for_others:
-                            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                            for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                            Ho += pnt_lbd * H_pnt @ H_pnt
-                        # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                        qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
-                    # constraints_for_cyclic --> 驱动哈密顿量
-                    for cyclic_mi in constraints_for_cyclic:
-                        nzlist = np.nonzero(cyclic_mi[:-1])[0]
-                        cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
-                        qml.QubitUnitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), wires=nzlist)
-                    for i in others_uqbit_set:
-                        qml.RX(Hd_params[layer],i)
-            elif optimization_method == 'commute':
-                Hd_bitsList = self.Hd_bitsList
-                for i in np.nonzero(self.feasiable_state)[0]:
-                    qml.PauliX(i)
-                for layer in range(num_layers):
+            pnt_lbd = self.pnt_lbd
+            constraints = self.constraints
+            for i in range(num_qubits):
+                # if self.op_dir == 'min':
+                #     qml.PauliX(i)
+                qml.Hadamard(i)
+            for layer in range(num_layers):
+                if is_decompose:
+                    pass
+                else:
                     #$ 目标函数
                     Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     for index, Ho_vi in enumerate(Ho_vector):
                         Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
                     for index, Ho_mi in enumerate(Ho_matrix):
                         Ho += Ho_mi
+                    # 惩罚项 Hamiltonian penalty
+                    for penalty_mi in constraints:
+                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                        Ho += pnt_lbd * H_pnt @ H_pnt
+                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
                     qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
-                    # 惩罚约束
-                    for bitstrings in range(len(Hd_bitsList)):
-                        hd_bits = Hd_bitsList[bitstrings]
-                        nonzero_indices = np.nonzero(hd_bits)[0]
-                        nonzerobits = hd_bits[nonzero_indices]
-                        if is_decompose:
-                            pass
-                            # get_driver_component_pennylane(num_qubits, Hd_params[layer], nonzerobits, nonzero_indices)
-                        else:
-                            qml.QubitUnitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
+                # Rx 驱动哈密顿量
+                for i in range(num_qubits):
+                    qml.RX(Hd_params[layer],i)
+            return qml.probs(wires=range(num_qubits))
+        @qml.qnode(dev)
+        def circuit_cyclic(params):
+            Ho_params = params[:num_layers]
+            Hd_params = params[num_layers:]
+            assert len(Hd_params) == num_layers
+            pnt_lbd = self.pnt_lbd
+            constraints_for_cyclic = self.constraints_for_cyclic
+            constraints_for_others = self.constraints_for_others
+            # 找到需要用cyclic的量子位设定可行解，其余照常用H门
+            cyclic_qubit_set = self.cyclic_qubit_set
+            others_uqbit_set = self.others_uqbit_set
+            for i in set(np.nonzero(self.feasiable_state)[0]).intersection(cyclic_qubit_set):
+                qml.PauliX(i)
+            for i in others_uqbit_set:
+                qml.Hadamard(i)                    
+            for layer in range(num_layers):
+                if is_decompose:
+                    pass
+                else:
+                    #$ 目标函数
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                    for index, Ho_vi in enumerate(Ho_vector):
+                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                    for index, Ho_mi in enumerate(Ho_matrix):
+                        Ho += Ho_mi
+                    # constraints_for_others 惩罚项
+                    for penalty_mi in constraints_for_others:
+                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                        Ho += pnt_lbd * H_pnt @ H_pnt
+                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                # constraints_for_cyclic --> 驱动哈密顿量
+                for cyclic_mi in constraints_for_cyclic:
+                    nzlist = np.nonzero(cyclic_mi[:-1])[0]
+                    cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
+                    qml.QubitUnitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), wires=nzlist)
+                for i in others_uqbit_set:
+                    qml.RX(Hd_params[layer],i)
+            return qml.probs(wires=range(num_qubits))
+        @qml.qnode(dev)
+        def circuit_commute(params):
+            Ho_params = params[:num_layers]
+            Hd_params = params[num_layers:]
+            assert len(Hd_params) == num_layers
+            Hd_bitsList = self.Hd_bitsList
+            for i in np.nonzero(self.feasiable_state)[0]:
+                qml.PauliX(i)
+            for layer in range(num_layers):
+                #$ 目标函数
+                Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                for index, Ho_vi in enumerate(Ho_vector):
+                    Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                for index, Ho_mi in enumerate(Ho_matrix):
+                    Ho += Ho_mi
+                qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                # 惩罚约束
+                for bitstrings in range(len(Hd_bitsList)):
+                    hd_bits = Hd_bitsList[bitstrings]
+                    nonzero_indices = np.nonzero(hd_bits)[0]
+                    nonzerobits = hd_bits[nonzero_indices]
+                    if is_decompose:
+                        pass
+                        # get_driver_component_pennylane(num_qubits, Hd_params[layer], nonzerobits, nonzero_indices)
+                    else:
+                        qml.QubitUnitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
             return qml.probs(wires=range(num_qubits))
         
-        self.inference_circuit = circuit
 
         def costfunc(params):
-            bitstrs = circuit(params)
+            bitstrs = self.inference_circuit(params)
             bitstrsindex = np.nonzero(bitstrs)[0]
             probs = bitstrs[bitstrsindex]
             variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
