@@ -1,5 +1,26 @@
 import numpy as np
 
+def make_unitary(matrix, tol=1e-9):
+    def is_unitary(matrix):
+      # 计算共轭转置
+      matrix_dagger = np.conjugate(matrix.T)
+      
+      # 计算 U^dagger U 是否接近单位矩阵
+      identity = np.eye(matrix.shape[0])
+      product = np.dot(matrix_dagger, matrix)
+      
+      # 检查是否接近单位矩阵
+      return np.allclose(product, identity)
+    if is_unitary(matrix):
+       return matrix
+    # 对矩阵进行奇异值分解
+    U, S, V = np.linalg.svd(matrix)
+    # 计算修正后的奇异值
+    S_corrected = np.where(S < 1 - tol, 1, np.where(S > 1 + tol, 1, S))
+    # 重构修正后的矩阵
+    unitary_matrix = np.dot(U, np.dot(np.diag(S_corrected), V))
+    return unitary_matrix
+
 # 设置numpy输出格式
 def set_print_form(suppress=True, precision=4, linewidth=300):
     # 不要截断 是否使用科学计数法 输出浮点数位数 宽度

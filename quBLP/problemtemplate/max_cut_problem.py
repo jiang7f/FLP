@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
+from quBLP.utils.quantum_lib import *
+
 class MaxCutProblem(ConstrainedBinaryOptimization):
     def __init__(self, num_points: int, pairs_connected: List[Tuple[int, int]], fastsolve=False) -> None:
         super().__init__(fastsolve)
@@ -20,7 +22,7 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
 
     @property
     def generate_Hp(self):
-        def add_in_target(num_qubits, target_qubit, gate=np.array([[1, 0],[0, -1]])):
+        def add_in_target(num_qubits, target_qubit, gate):
             H = np.eye(2 ** (target_qubit))
             H = np.kron(H, gate)
             H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
@@ -30,7 +32,7 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
         for pair in self.pairs_connected:
             i = pair[0]
             j = pair[1]
-            Hp += 1/2*(add_in_target(num_qubits, i) @ add_in_target(num_qubits, j) + np.eye(2**num_qubits))
+            Hp += 1/2*(add_in_target(num_qubits, i, gate_z) @ add_in_target(num_qubits, j, gate_z) + np.eye(2**num_qubits))
         return Hp
 
     @property

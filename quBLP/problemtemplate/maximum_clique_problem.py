@@ -25,6 +25,8 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
             pairs_unconnected (List[Tuple[int, int]]): the pair of unconnected points like (a, b)
         """
         super().__init__(fastsolve)
+        # 设定优化方向
+        self.set_optimization_direction('max')
         self.num_points = num_points
         self.pairs_unconnected = pairs_unconnected
         self.num_pairs = len(pairs_unconnected)
@@ -33,8 +35,14 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         self.X = self.add_binary_variables('x', [self.num_points])
         self.Y = self.add_binary_variables('y', [self.num_pairs])
 
-        self.objective = self.objectivefunc()
+        self.objective_penalty = self.objective_func('penalty')
+        self.objective_commute = self.objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
+        # 直接加目标函数表达式
+        self._add_linear_objective(np.concatenate((self.cost_dir * np.array([1] * self.num_points), np.array([0] * self.num_pairs))))
+        # 约束放到 self.constraints 里
+        for cstrt in self.linear_constraints:
+            self._add_linear_constraint(cstrt)
         pass
     @property
     def linear_constraints(self):
@@ -55,7 +63,7 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         # 全 0 就是可行解
         return [x.x for x in self.variables]
 
-    def objectivefunc(self):
+    def objective_func(self, optimization_method):
         def objective(variables:Iterable):
             """ the objective function of the maximum clique problem
 
@@ -65,10 +73,16 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
             Returns:
                 cost
             """
+            m = self.num_points
             cost = 0
-            for i in range(self.num_points):
+            for i in range(m):
                 cost += variables[self.var_to_idex(self.X[i])]
-            return -cost
+            if optimization_method == 'commute':
+                return self.cost_dir * cost
+            for k, (a, b) in enumerate(self.pairs_unconnected):
+                cost += -self.penalty_lambda * (variables[self.var_to_idex(self.X[a])] + variables[self.var_to_idex(self.X[b])] - variables[self.var_to_idex(self.Y[k])])**2
+            if optimization_method == 'penalty':
+                return self.cost_dir * cost
         return objective
 
         

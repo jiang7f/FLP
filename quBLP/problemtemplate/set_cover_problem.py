@@ -27,6 +27,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
             list_element_belongs (Iterable[Iterable]):  list_element_belong[i]: element i belongs to list of sets
         """
         super().__init__(fastsolve)
+        self.set_optimization_direction('min')
         # 如果只属于 1 个, 那个集合直接选中, 只考虑 >= 2 的情况
         for element_belongs in list_element_belongs:
             assert len(element_belongs) >= 2
@@ -39,8 +40,14 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
         # 注意每一维度变量个数不同
         self.Y = [[self.add_binary_variable('y_'+str(j) + '_' + str(k)) for k in range(len(self.list_element_belongs[j]) - 1)] for j in range(len(self.list_element_belongs))]
 
-        self.objective = self.objectivefunc()
+        self.objective_penalty = self.objective_func('penalty')
+        self.objective_commute = self.objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
+        #* 直接加目标函数表达式
+        self._add_linear_objective(np.concatenate((self.cost_dir * np.array([1] * self.num_sets), np.array([0] * (self.num_variables - self.num_sets)))))
+        #* 约束放到 self.constraints 里
+        for cstrt in self.linear_constraints:
+            self._add_linear_constraint(cstrt)
         pass
     @property
     def linear_constraints(self):
@@ -66,7 +73,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
             var.set_value(1)
         return [x.x for x in self.variables]
 
-    def objectivefunc(self):
+    def objective_func(self, optimization_method):
         def objective(variables:Iterable):
             """ 
             Args:
@@ -75,10 +82,21 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
                 scaler
             """
             m = self.num_sets
+            n = self.num_elements
             cost = 0
             for i in range(m):
                 cost += variables[self.var_to_idex(self.X[i])]
-            return cost
+            if optimization_method == 'commute':
+                return self.cost_dir * cost
+            for j in range(n):
+                t = 0
+                for i in self.list_element_belongs[j]:
+                    t += variables[self.var_to_idex(self.X[i])]
+                for k in range(len(self.list_element_belongs[j]) - 1):
+                    t += variables[self.var_to_idex(self.Y[j][k])]
+                cost += self.penalty_lambda * (t - 1)**2
+            if optimization_method == 'penalty':
+                return self.cost_dir * cost
         return objective
 
         

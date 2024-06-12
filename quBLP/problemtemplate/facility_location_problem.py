@@ -25,30 +25,28 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             f (Vector[n]): f_j: the building cost for facility j
         """
         super().__init__(fastsolve)
-        # 设定优化方向
+        #* 设定优化方向
         self.set_optimization_direction('min')
-        ## 设施点个数
+        # 设施点个数
         self.n = n
-        ## 需求点个数
+        # 需求点个数
         self.m = m
         # cij需求i到设施j的成本
         self.c = c 
         # fj设施j的建设成本
         self.f = f
         self.num_variables = n + 2 * n * m
-
         self.X = self.add_binary_variables('x', [n])
         self.Y = self.add_binary_variables('y', [m, n])
         self.Z = self.add_binary_variables('z', [m, n])
-
+        #* 添加支持优化方法
         self.objective_penalty = self.objective_func('penalty')
         self.objective_cyclic = self.objective_func('cyclic')
         self.objective_commute = self.objective_func('commute')
-
         self.feasible_solution = self.get_feasible_solution()
-        # 直接加目标函数表达式
-        self._add_linear_objective(list(itertools.chain(f, *c)))
-        # 约束放到 self.constraints 里
+        #* 直接加目标函数表达式
+        self._add_linear_objective(np.multiply(list(itertools.chain(f, *c)), self.cost_dir))
+        #* 约束放到 self.constraints 里
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)
         pass
@@ -106,13 +104,13 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
     def get_feasible_solution(self):
         """ 根据约束寻找到一个可行解
         """
-        for j in range(self.n):
-            self.X[j].set_value(1)
+        # for j in range(self.n):
+        self.X[0].set_value(1)
         for i in range(self.m):
             self.Y[i][0].set_value(1)
-        for i in range(self.m):
-            for j in range(self.n):
-                self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
+        # for i in range(self.m):
+        #     for j in range(self.n):
+        #         self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         return [x.x for x in self.variables]
 
     def objective_func(self, optimization_method):
@@ -129,7 +127,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             for i in range(self.m):
                 for j in range(self.n):
                     cost += self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
-            # cyclic 多包含一项∑=x
+            # cyclic 多包含一项非∑=x约束
             if optimization_method == 'cyclic':
                 return self.cost_dir * cost
             for i in range(self.m):

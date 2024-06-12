@@ -89,7 +89,7 @@
 **等式约束**:
 
 - 没想好怎么表述元素属于多少个集合, 写了len
-- $\sum_{i: e_j \in S_i} x_i - \sum_{k=1}^{len(e_j \in) - 1}y_{jk}= 1$ for all $j = 1, \cdots, n$. 
+- $\sum_{i: e_j \in S_i} x_i - \sum_{k=1}^{len(e_j \in S_i) - 1}y_{jk}= 1$ for all $j = 1, \cdots, n$. 
 - $x_{i}, y_{jk} \in\{0,1\}$
 
 ## 5. 旅行商问题 Traveling Salesman Problem (TSP)
