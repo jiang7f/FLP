@@ -231,7 +231,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False) -> None: 
+    def optimize(self, params_optimization_method='adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
         # 优化类型，是个数字
         optimization_method=[self.optimization_method_type, [self.linear_objective_vector, self.nolinear_objective_matrix]]
         print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
@@ -261,7 +261,7 @@ class ConstrainedBinaryOptimization(Model):
   
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
-        collapse_state, probs = solve(params_optimization_method, max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction, need_draw)
+        collapse_state, probs = solve(params_optimization_method, max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction, need_draw, beta1, beta2)
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]

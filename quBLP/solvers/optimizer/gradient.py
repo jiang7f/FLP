@@ -27,9 +27,7 @@ def gradient_by_param_shift(params, cost_function):
         gradients[i] = (forward - backward)/(2*shift)
     return gradients
 
-def adam_optimizer(params, cost_function, max_iter, learning_rate, num_consecutive_iter = 5, early_stopping_threshold=0.0001):
-    beta1 = 0.9
-    beta2 = 0.999
+def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2, num_consecutive_iter = 5, early_stopping_threshold=0.0001):
     eps = 1e-8
     m = np.zeros(len(params))
     v = np.zeros(len(params))
@@ -74,6 +72,6 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, num_consecuti
     #+
     return best_params
 
-def train_gradient(num_params, cost_function, max_iter, learning_rate):
+def train_gradient(num_params, cost_function, max_iter, learning_rate, beta1, beta2):
     params = 2*np.pi*np.random.uniform(0, 1, num_params, requires_grad=True)
-    return adam_optimizer(params, cost_function, max_iter, learning_rate)
+    return adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2)

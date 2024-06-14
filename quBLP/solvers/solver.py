@@ -1,7 +1,7 @@
 from .circuits import PennylaneCircuit
 from .optimizer import train_gradient, train_non_gradient
 import numpy as np
-def solve(params_optimization_method, max_iter, learning_rate, variables, num_layers, objective, feasiable_state, optimization_method, optimization_direction, need_draw):
+def solve(params_optimization_method, max_iter, learning_rate, variables, num_layers, objective, feasiable_state, optimization_method, optimization_direction, need_draw, beta1, beta2):
     """solver for the problem
     Args:
         variables (List[str]): variables of the problem
@@ -26,7 +26,7 @@ def solve(params_optimization_method, max_iter, learning_rate, variables, num_la
     # 进行参数优化
     print(circuit.inference_circuit) #-
     if params_optimization_method == 'adam':
-        best_params = train_gradient(num_params,cost_func,max_iter,learning_rate)
+        best_params = train_gradient(num_params,cost_func,max_iter,learning_rate, beta1, beta2)
     elif params_optimization_method == 'COBYLA':
         best_params = train_non_gradient(num_params, cost_func, max_iter)
     collapse_state, probs = circuit.inference(best_params)
