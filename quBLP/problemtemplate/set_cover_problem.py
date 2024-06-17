@@ -73,7 +73,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
             var.set_value(1)
         return [x.x for x in self.variables]
 
-    def objective_func(self, optimization_method):
+    def objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             """ 
             Args:
@@ -86,7 +86,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
             cost = 0
             for i in range(m):
                 cost += variables[self.var_to_idex(self.X[i])]
-            if optimization_method == 'commute':
+            if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for j in range(n):
                 t = 0
@@ -95,7 +95,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
                 for k in range(len(self.list_element_belongs[j]) - 1):
                     t += variables[self.var_to_idex(self.Y[j][k])]
                 cost += self.penalty_lambda * (t - 1)**2
-            if optimization_method == 'penalty':
+            if algorithm_optimization_method == 'penalty':
                 return self.cost_dir * cost
         return objective
 

@@ -113,7 +113,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         #         self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         return [x.x for x in self.variables]
 
-    def objective_func(self, optimization_method):
+    def objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             cost = 0
             for i in range(self.m):
@@ -122,13 +122,13 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             for j in range(self.n):
                 cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
             # commute 只需要目标函数两项
-            if optimization_method == 'commute':
+            if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for i in range(self.m):
                 for j in range(self.n):
                     cost += self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
             # cyclic 多包含一项非∑=x约束
-            if optimization_method == 'cyclic':
+            if algorithm_optimization_method == 'cyclic':
                 return self.cost_dir * cost
             for i in range(self.m):
                 t = 0
@@ -136,7 +136,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                     t += variables[self.var_to_idex(self.Y[i][j])]
                 cost += self.penalty_lambda * (t - 1)**2
             # penalty 所有约束都惩罚施加
-            if optimization_method == 'penalty':
+            if algorithm_optimization_method == 'penalty':
                 return self.cost_dir * cost
         return objective
     

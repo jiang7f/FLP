@@ -166,6 +166,7 @@ if __name__ == '__main__':
     set_print_form()
     # generate constraint(n = 设施数量, m = 需求数量)
     cstt = gnrt_cstt(2, 2)
+    print(cstt)
     print(to_row_echelon_form(cstt))
     # 求解基础解系
     print(find_basic_solution(cstt))

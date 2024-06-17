@@ -1,1 +1,1 @@
-from .models import Model,ConstrainedBinaryOptimization
+from .models import Model, ConstrainedBinaryOptimization

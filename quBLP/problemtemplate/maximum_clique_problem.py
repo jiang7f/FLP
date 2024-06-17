@@ -63,7 +63,7 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
         # 全 0 就是可行解
         return [x.x for x in self.variables]
 
-    def objective_func(self, optimization_method):
+    def objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             """ the objective function of the maximum clique problem
 
@@ -77,11 +77,11 @@ class MaximumCliqueProblem(ConstrainedBinaryOptimization):
             cost = 0
             for i in range(m):
                 cost += variables[self.var_to_idex(self.X[i])]
-            if optimization_method == 'commute':
+            if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for k, (a, b) in enumerate(self.pairs_unconnected):
                 cost += -self.penalty_lambda * (variables[self.var_to_idex(self.X[a])] + variables[self.var_to_idex(self.X[b])] - variables[self.var_to_idex(self.Y[k])])**2
-            if optimization_method == 'penalty':
+            if algorithm_optimization_method == 'penalty':
                 return self.cost_dir * cost
         return objective
 

@@ -1,10 +1,13 @@
 ## This file defines a problem of binary constraint optimization 
 import numpy as np
 import itertools
-from typing import Iterable, List
+from typing import Iterable, List, Callable,  Union
 from ..utils.linear_system import find_basic_solution
 from ..utils.parse_expr import split_expr
 from ..solvers import solve
+from dataclasses import dataclass, field
+from .option import OptimizerOption, CircuitOption
+
 class Model:
     def __init__(self) -> None:
         pass
@@ -45,12 +48,7 @@ class Variable:
         if isinstance(other,Variable):
             return self.x * other.x
         return self.x * other
-
     
-    
-    
-
-## Define the problem
 class ConstrainedBinaryOptimization(Model):
     def __init__(self,fastsolve=False):
         """ a constrainted binary optimization problem
@@ -64,12 +62,12 @@ class ConstrainedBinaryOptimization(Model):
         self.constraints_for_others = []
         # self.constraints yeld by @property
         self.linear_objective_vector = []
-        self.nolinear_objective_matrix = []
+        self.nonlinear_objective_matrix = []
         self.objective = None
         self.variables_idx = {}
         self.current_var_idx = 0
         self.variable_name_set = set()
-        self.optimization_method_type = 'commute'
+        self.algorithm_optimization_method = 'commute'
         self.penalty_lambda = 0
         self.collapse_state = None
         self.probs = None
@@ -86,8 +84,8 @@ class ConstrainedBinaryOptimization(Model):
         index = self.collapse_state.index(state)
         return self.probs[index]
     
-    def set_optimization_method_type(self, type='commute', penalty_lambda = 0):
-        self.optimization_method_type = type
+    def set_algorithm_optimization_method(self, type='commute', penalty_lambda = 0):
+        self.algorithm_optimization_method = type
         self.penalty_lambda = penalty_lambda
 
     def add_binary_variables(self, name:str, shape:List[int]):
@@ -231,41 +229,78 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
-        # 优化类型，是个数字
-        optimization_method=[self.optimization_method_type, [self.linear_objective_vector, self.nolinear_objective_matrix]]
+    # def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
+
+        self.feasiable_state = self.get_feasible_solution()
+        print(f'fsb_state:{self.feasiable_state}') #-
+        
+        optimizer_option = OptimizerOption(
+            params_optimization_method=params_optimization_method,
+            max_iter=max_iter,
+            learning_rate=learning_rate,
+            beta1=beta1,
+            beta2=beta2,
+        )
+
+        circuit_option = CircuitOption(
+            num_qubits=len(self.variables),
+            num_layers=num_layers,
+            objective=None,
+            algorithm_optimization_method=self.algorithm_optimization_method,
+            feasiable_state=self.feasiable_state,
+            optimization_direction=self.optimization_direction,
+            is_decompose=False,
+            Hp_by_gate=False,
+            linear_objective_vector=self.linear_objective_vector,
+            nonlinear_objective_matrix=self.nonlinear_objective_matrix,
+            need_draw=need_draw,
+        )
+
         print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
-        print(f'nolinear_objective_matrix:\n {self.nolinear_objective_matrix}') #-
-        objective = None
+        print(f'nonlinear_objective_matrix:\n {self.nonlinear_objective_matrix}') #-
         #$
-        if self.optimization_method_type == 'penalty':
-            optimization_method.extend([self.penalty_lambda, self.constraints])
+        if self.algorithm_optimization_method == 'penalty':
+            circuit_option.penalty_lambda = self.penalty_lambda
+            circuit_option.constraints = self.constraints
             print(f'penalty_lambda:\n {self.penalty_lambda}') #-
             print(f'constraints:\n {self.constraints}') #-
-            objective = self.objective_penalty
-        elif self.optimization_method_type == 'cyclic':
-            optimization_method.extend([self.penalty_lambda, self.constraints_for_cyclic, self.constraints_for_others])
+            circuit_option.objective = self.objective_penalty
+        elif self.algorithm_optimization_method == 'cyclic':
+            circuit_option.penalty_lambda = self.penalty_lambda
+            circuit_option.constraints_for_cyclic = self.constraints_for_cyclic
+            circuit_option.constraints_for_others = self.constraints_for_others
             print(f'penalty_lambda:\n {self.penalty_lambda}') #-
             print(f'constraints_for_cyclic:\n {self.constraints_for_cyclic}') #-
             print(f'constraints_for_others:\n {self.constraints_for_others}') #-
-            objective = self.objective_cyclic
+            circuit_option.objective = self.objective_cyclic
             pass
-        elif self.optimization_method_type == 'commute':
+        elif self.algorithm_optimization_method == 'commute':
             driver_bitstrs = self.get_driver_bitstr()
-            optimization_method.append(driver_bitstrs)
+            circuit_option.Hd_bits_list = driver_bitstrs
             print(f'driverstr:\n {driver_bitstrs}') #-
-            objective = self.objective_commute
-        elif self.optimization_method_type == 'HEA':
-            objective = self.objective_penalty
+            circuit_option.objective = self.objective_commute
+        elif self.algorithm_optimization_method == 'HEA':
+            circuit_option.objective = self.objective_penalty
             pass
-  
-        self.feasiable_state = self.get_feasible_solution()
-        print(f'fsb_state:{self.feasiable_state}') #-
-        collapse_state, probs = solve(params_optimization_method, max_iter, learning_rate, self.variables, num_layers, objective, self.feasiable_state, optimization_method, self.optimization_direction, need_draw, beta1, beta2)
+
+        """ collapse_state, probs = solve(params_optimization_method, 
+                                      max_iter, 
+                                      learning_rate, 
+                                      self.variables, 
+                                      num_layers, 
+                                      objective, 
+                                      self.feasiable_state, 
+                                      algorithm_optimization_method, 
+                                      self.optimization_direction, 
+                                      need_draw, 
+                                      beta1, beta2, 
+                                      circuit_option) """
+        collapse_state, probs = solve(optimizer_option, circuit_option)
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
-        cost = objective(max_prob_solution)
+        cost = circuit_option.objective(max_prob_solution)
         print(collapse_state)
         print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
         self.collapse_state=collapse_state

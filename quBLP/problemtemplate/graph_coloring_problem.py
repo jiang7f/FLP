@@ -104,7 +104,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             self.Y[b][k].set_value(1)
         return [var.x for var in self.variables]
 
-    def objective_func(self, optimization_method):
+    def objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             """ the objective function of the graph coloring problem
 
@@ -122,13 +122,13 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                 if 1 in [variables[self.var_to_idex(self.X[i][j])] for i in range(self.num_graphs)]:
                     cost += 1
             # commute 只需要目标函数一项
-            if optimization_method == 'commute':
+            if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for j in range(n):
                 for k, (a, b) in enumerate(self.pairs_adjacent):
                     cost += self.penalty_lambda * (variables[self.var_to_idex(self.X[a][j])] + variables[self.var_to_idex(self.X[b][j])] - variables[self.var_to_idex(self.Y[j][k])])**2
             # cyclic 多包含一项∑=x
-            if optimization_method == 'cyclic':
+            if algorithm_optimization_method == 'cyclic':
                 return self.cost_dir * cost
             for i in range(m):
                 t = 0
@@ -136,7 +136,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                     t += variables[self.var_to_idex(self.X[i][j])]
                 cost += self.penalty_lambda * (t - 1)**2
             # penalty 所有约束都惩罚施加
-            if optimization_method == 'penalty':
+            if algorithm_optimization_method == 'penalty':
                 return self.cost_dir * cost
             
             # costfun_2 构造Hp可以考虑这个
@@ -145,7 +145,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             # odd_even = -1 if self.num_graphs % 2 else 1
             # for j in range(self.num_colors): 
             #     cost += 1 - odd_even * reduce(lambda x, y: x * y, [variables[self.var_to_idex(self.X[i][j])] - 1 for i in range(self.num_graphs)])
-            # if optimization_method == 'commute':
+            # if algorithm_optimization_method == 'commute':
             #     return self.cost_dir * cost
         return objective
 

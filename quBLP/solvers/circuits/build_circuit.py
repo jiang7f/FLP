@@ -1,10 +1,11 @@
 import pennylane as qml
 from qiskit import QuantumCircuit
-from quBLP.utils.quantum_lib import *
+from ...utils.quantum_lib import *
 import numpy as np
 import numpy.linalg as ls
 from scipy.linalg import expm
 from .penneylane_decompose import get_driver_component as get_driver_component_pennylane
+from ...models import CircuitOption
 
 def plus_minus_gate_sequence_to_unitary(s):
     # 把非0元素映射成01
@@ -20,24 +21,27 @@ def plus_minus_gate_sequence_to_unitary(s):
     matrix[map_num, scale - 1 - map_num] = 1
     return matrix
 
-# num_qubits, num_layers, objective, feasiable_state, optimization_method
 class PennylaneCircuit:
-    def __init__(self, num_qubits, num_layers, objective, feasiable_state, optimization_method, optimization_direction):
-        self.num_qubits = num_qubits
-        self.num_layers = num_layers
-        self.objective = objective
-        self.feasiable_state = feasiable_state
-        self.optimization_method = optimization_method
-        assert optimization_direction in ['min', 'max']
-        self.Ho_dir =  1 if optimization_direction == 'max' else -1
+    def __init__(self, circuit_option: CircuitOption):
+        self.circuit_option = circuit_option
+        assert circuit_option.optimization_direction in ['min', 'max']
+        self.Ho_dir =  1 if circuit_option.optimization_direction == 'max' else -1
+        if circuit_option.algorithm_optimization_method == 'cyclic':
+            self.cyclic_qubit_set = {item for sublist in self.circuit_option.constraints_for_cyclic for item in np.nonzero(sublist[:-1])[0]}
+            self.others_qubit_set = set(range(circuit_option.num_qubits)) - self.cyclic_qubit_set
+        self.num_qubits = circuit_option.num_qubits
+        self.num_layers = circuit_option.num_layers
 
     # 先给出不同电路的函数，变量初始化在此之后
-    def create_circuit(self, is_decompose=False):
+    def create_circuit(self):
+        is_decompose = self.circuit_option.is_decompose
+        Hp_by_gate = self.circuit_option.Hp_by_gate
+        Ho_vector = self.circuit_option.linear_objective_vector
+        Ho_matrix = self.circuit_option.nonlinear_objective_matrix
         self.inference_circuit = None
         num_qubits = self.num_qubits
         num_layers = self.num_layers
-        optimization_method = self.optimization_method[0] 
-        Ho_vector, Ho_matrix = self.optimization_method[1]
+        algorithm_optimization_method = self.circuit_option.algorithm_optimization_method
         dev = qml.device("default.qubit", wires=num_qubits)
         def add_in_target(num_qubits, target_qubit, gate):
             H = np.eye(2 ** (target_qubit))
@@ -56,8 +60,8 @@ class PennylaneCircuit:
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
-            pnt_lbd = self.pnt_lbd
-            constraints = self.constraints
+            pnt_lbd = self.circuit_option.penalty_lambda
+            constraints = self.circuit_option.constraints
             for i in range(num_qubits):
                 # if self.op_dir == 'min':
                 #     qml.PauliX(i)
@@ -91,15 +95,15 @@ class PennylaneCircuit:
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
-            pnt_lbd = self.pnt_lbd
-            constraints_for_cyclic = self.constraints_for_cyclic
-            constraints_for_others = self.constraints_for_others
+            pnt_lbd = self.circuit_option.penalty_lambda
+            constraints_for_cyclic = self.circuit_option.constraints_for_cyclic
+            constraints_for_others = self.circuit_option.constraints_for_others
             # 找到需要用cyclic的量子位设定可行解，其余照常用H门
             cyclic_qubit_set = self.cyclic_qubit_set
-            others_uqbit_set = self.others_uqbit_set
-            for i in set(np.nonzero(self.feasiable_state)[0]).intersection(cyclic_qubit_set):
+            others_qubit_set = self.others_qubit_set
+            for i in set(np.nonzero(self.circuit_option.feasiable_state)[0]).intersection(cyclic_qubit_set):
                 qml.PauliX(i)
-            for i in others_uqbit_set:
+            for i in others_qubit_set:
                 qml.Hadamard(i)                    
             for layer in range(num_layers):
                 if is_decompose:
@@ -125,7 +129,7 @@ class PennylaneCircuit:
                     nzlist = np.nonzero(cyclic_mi[:-1])[0]
                     cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
                     qml.QubitUnitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), wires=nzlist)
-                for i in others_uqbit_set:
+                for i in others_qubit_set:
                     qml.RX(Hd_params[layer],i)
             return qml.probs(wires=range(num_qubits))
         
@@ -134,8 +138,8 @@ class PennylaneCircuit:
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
-            Hd_bitsList = self.Hd_bitsList
-            for i in np.nonzero(self.feasiable_state)[0]:
+            Hd_bits_list = self.circuit_option.Hd_bits_list
+            for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qml.PauliX(i)
             for layer in range(num_layers):
                 #$ 目标函数
@@ -146,8 +150,8 @@ class PennylaneCircuit:
                     Ho += Ho_mi
                 qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 # 惩罚约束
-                for bitstrings in range(len(Hd_bitsList)):
-                    hd_bits = Hd_bitsList[bitstrings]
+                for bitstrings in range(len(Hd_bits_list)):
+                    hd_bits = Hd_bits_list[bitstrings]
                     nonzero_indices = np.nonzero(hd_bits)[0]
                     nonzerobits = hd_bits[nonzero_indices]
                     if is_decompose:
@@ -173,23 +177,13 @@ class PennylaneCircuit:
                     qml.CNOT(wires=[i, (i + 1) % num_qubits])
             return qml.probs(wires=range(num_qubits))
         
-        # 单次整理好用到的变量，防止重复计算（如cyclic_qubit_set）
-        if optimization_method == 'penalty':
-            self.pnt_lbd = self.optimization_method[2]
-            self.constraints = self.optimization_method[3]
-            self.inference_circuit = circuit_penalty
-        elif optimization_method == 'cyclic':
-            self.pnt_lbd = self.optimization_method[2]
-            self.constraints_for_cyclic = self.optimization_method[3]
-            self.constraints_for_others = self.optimization_method[4]
-            self.cyclic_qubit_set = set([item for sublist in self.constraints_for_cyclic for item in np.nonzero(sublist[:-1])[0]])
-            self.others_uqbit_set = set(range(num_qubits)) - self.cyclic_qubit_set
-            self.inference_circuit = circuit_cyclic
-        elif optimization_method == 'commute':
-            self.Hd_bitsList = self.optimization_method[2]
-            self.inference_circuit = circuit_commute
-        elif optimization_method == 'HEA':
-            self.inference_circuit = circuit_HEA
+        circuit_map = {
+            'penalty': circuit_penalty,
+            'cyclic': circuit_cyclic,
+            'commute': circuit_commute,
+            'HEA': circuit_HEA
+        }
+        self.inference_circuit = circuit_map.get(algorithm_optimization_method)
 
         def costfunc(params):
             bitstrs = self.inference_circuit(params)
@@ -198,14 +192,14 @@ class PennylaneCircuit:
             variablevalues = [[int(j) for j in list(bin(i)[2:].zfill(self.num_qubits))] for i in bitstrsindex]
             costs = 0
             for value, prob in zip(variablevalues, probs):
-                costs += self.objective(value) * prob
+                costs += self.circuit_option.objective(value) * prob
             return costs
         return costfunc
     
     def draw_circuit(self) -> None:
         from pennylane.drawer import draw
         circuit_drawer = draw(self.inference_circuit)
-        if self.optimization_method[0] == 'HEA':
+        if self.circuit_option.algorithm_optimization_method == 'HEA':
             print(circuit_drawer(np.zeros(self.num_layers * self.num_qubits * 3)))
         else:
             print(circuit_drawer(np.zeros(self.num_layers * 2)))
