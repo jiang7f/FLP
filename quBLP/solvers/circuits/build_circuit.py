@@ -35,7 +35,8 @@ class PennylaneCircuit:
     # 先给出不同电路的函数，变量初始化在此之后
     def create_circuit(self):
         is_decompose = self.circuit_option.is_decompose
-        Hp_by_gate = self.circuit_option.Hp_by_gate
+        by_Ho_gate_list = self.circuit_option.by_Ho_gate_list
+        Ho_gate_list = self.circuit_option.Ho_gate_list
         Ho_vector = self.circuit_option.linear_objective_vector
         Ho_matrix = self.circuit_option.nonlinear_objective_matrix
         self.inference_circuit = None
@@ -67,24 +68,27 @@ class PennylaneCircuit:
                 #     qml.PauliX(i)
                 qml.Hadamard(i)
             for layer in range(num_layers):
-                if is_decompose:
+                if is_decompose == True:
                     pass
-                else:
-                    #$ 目标函数
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                    # 惩罚项 Hamiltonian penalty
-                    for penalty_mi in constraints:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
-                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                elif is_decompose == False:
+                    if by_Ho_gate_list == True:
+                        pass
+                    elif by_Ho_gate_list == False:
+                        #$ 目标函数
+                        Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, Ho_vi in enumerate(Ho_vector):
+                            Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        for index, Ho_mi in enumerate(Ho_matrix):
+                            Ho += Ho_mi
+                        # 惩罚项 Hamiltonian penalty
+                        for penalty_mi in constraints:
+                            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                            for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                            Ho += pnt_lbd * H_pnt @ H_pnt
+                        # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                        qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 # Rx 驱动哈密顿量
                 for i in range(num_qubits):
                     qml.RX(Hd_params[layer],i)
@@ -109,21 +113,24 @@ class PennylaneCircuit:
                 if is_decompose:
                     pass
                 else:
-                    #$ 目标函数
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                    # constraints_for_others 惩罚项
-                    for penalty_mi in constraints_for_others:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
-                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                    if by_Ho_gate_list == True:
+                        pass
+                    elif by_Ho_gate_list == False:
+                        #$ 目标函数
+                        Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, Ho_vi in enumerate(Ho_vector):
+                            Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        for index, Ho_mi in enumerate(Ho_matrix):
+                            Ho += Ho_mi
+                        # constraints_for_others 惩罚项
+                        for penalty_mi in constraints_for_others:
+                            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                            for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                            Ho += pnt_lbd * H_pnt @ H_pnt
+                        # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                        qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 # constraints_for_cyclic --> 驱动哈密顿量
                 for cyclic_mi in constraints_for_cyclic:
                     nzlist = np.nonzero(cyclic_mi[:-1])[0]
@@ -142,13 +149,16 @@ class PennylaneCircuit:
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qml.PauliX(i)
             for layer in range(num_layers):
-                #$ 目标函数
-                Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                for index, Ho_vi in enumerate(Ho_vector):
-                    Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                for index, Ho_mi in enumerate(Ho_matrix):
-                    Ho += Ho_mi
-                qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                if by_Ho_gate_list == True:
+                    pass
+                elif by_Ho_gate_list == False:
+                    #$ 目标函数
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                    for index, Ho_vi in enumerate(Ho_vector):
+                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                    for index, Ho_mi in enumerate(Ho_matrix):
+                        Ho += Ho_mi
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 # 惩罚约束
                 for bitstrings in range(len(Hd_bits_list)):
                     hd_bits = Hd_bits_list[bitstrings]

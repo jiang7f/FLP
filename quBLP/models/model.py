@@ -73,6 +73,7 @@ class ConstrainedBinaryOptimization(Model):
         self.probs = None
         self.optimization_direction = None
         self.cost_dir = 0
+        self.Ho_gate_list = []
         pass
 
     def set_optimization_direction(self, dir):
@@ -84,7 +85,7 @@ class ConstrainedBinaryOptimization(Model):
         index = self.collapse_state.index(state)
         return self.probs[index]
     
-    def set_algorithm_optimization_method(self, type='commute', penalty_lambda = 0):
+    def set_algorithm_optimization_method(self, type='commute', penalty_lambda = None):
         self.algorithm_optimization_method = type
         self.penalty_lambda = penalty_lambda
 
@@ -212,6 +213,7 @@ class ConstrainedBinaryOptimization(Model):
     @property
     def linear_constraints(self):
         return []
+    @property
     def get_driver_bitstr(self):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
@@ -229,8 +231,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    # def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999) -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, by_Ho_gate_list=True) -> None: 
 
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
@@ -251,51 +252,26 @@ class ConstrainedBinaryOptimization(Model):
             feasiable_state=self.feasiable_state,
             optimization_direction=self.optimization_direction,
             is_decompose=False,
-            Hp_by_gate=False,
             linear_objective_vector=self.linear_objective_vector,
             nonlinear_objective_matrix=self.nonlinear_objective_matrix,
             need_draw=need_draw,
+            by_Ho_gate_list=by_Ho_gate_list,
+            Ho_gate_list = self.Ho_gate_list,
+            penalty_lambda = self.penalty_lambda,
+            constraints = self.constraints,
+            constraints_for_cyclic = self.constraints_for_cyclic,
+            constraints_for_others = self.constraints_for_others,
+            Hd_bits_list = self.get_driver_bitstr
         )
 
-        print(f'linear_objective_vector:\n {self.linear_objective_vector}') #-
-        print(f'nonlinear_objective_matrix:\n {self.nonlinear_objective_matrix}') #-
-        #$
-        if self.algorithm_optimization_method == 'penalty':
-            circuit_option.penalty_lambda = self.penalty_lambda
-            circuit_option.constraints = self.constraints
-            print(f'penalty_lambda:\n {self.penalty_lambda}') #-
-            print(f'constraints:\n {self.constraints}') #-
-            circuit_option.objective = self.objective_penalty
-        elif self.algorithm_optimization_method == 'cyclic':
-            circuit_option.penalty_lambda = self.penalty_lambda
-            circuit_option.constraints_for_cyclic = self.constraints_for_cyclic
-            circuit_option.constraints_for_others = self.constraints_for_others
-            print(f'penalty_lambda:\n {self.penalty_lambda}') #-
-            print(f'constraints_for_cyclic:\n {self.constraints_for_cyclic}') #-
-            print(f'constraints_for_others:\n {self.constraints_for_others}') #-
-            circuit_option.objective = self.objective_cyclic
-            pass
-        elif self.algorithm_optimization_method == 'commute':
-            driver_bitstrs = self.get_driver_bitstr()
-            circuit_option.Hd_bits_list = driver_bitstrs
-            print(f'driverstr:\n {driver_bitstrs}') #-
-            circuit_option.objective = self.objective_commute
-        elif self.algorithm_optimization_method == 'HEA':
-            circuit_option.objective = self.objective_penalty
-            pass
+        objective_map = {
+            'penalty': self.objective_penalty,
+            'cyclic': self.objective_cyclic,
+            'commute': self.objective_commute,
+            'HEA': self.objective_penalty
+        }
+        circuit_option.objective = objective_map.get(self.algorithm_optimization_method)
 
-        """ collapse_state, probs = solve(params_optimization_method, 
-                                      max_iter, 
-                                      learning_rate, 
-                                      self.variables, 
-                                      num_layers, 
-                                      objective, 
-                                      self.feasiable_state, 
-                                      algorithm_optimization_method, 
-                                      self.optimization_direction, 
-                                      need_draw, 
-                                      beta1, beta2, 
-                                      circuit_option) """
         collapse_state, probs = solve(optimizer_option, circuit_option)
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
