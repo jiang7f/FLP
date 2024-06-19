@@ -1,9 +1,15 @@
 build/
 dist/
 *.egg-info/
-
 .DS_Store
 __pycache__/
-
+*.pyc
+*/.ipynb_checkpoints/
+*/__pycache__/
+*/*/__pycache__/
+*/*/*/__pycache__/
+*.log
+*.csv
+*.txt
 3_QCOA
 gp/

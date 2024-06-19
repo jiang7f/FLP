@@ -1,5 +1,9 @@
-from qiskit import QuantumCircuit
 from time import perf_counter
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit_aer import Aer
+from qiskit import transpile
+from scipy.linalg import expm
+import numpy as np
 def iter_apply(qc,bitstring,i,num_qubits):
     flip = bitstring[0]==0
     if flip:
@@ -43,27 +47,63 @@ def reverse_apply_convert(qc,bitstring):
     ##find bit start with 1
 
 
-def get_driver_component(num_qubits,t,bitstring):
+def decompose_phase_gate(circuit:QuantumCircuit,qr:QuantumRegister,ancilla:QuantumRegister,phase:float)->QuantumCircuit:
+    """
+    Decompose a phase gate into a series of controlled-phase gates.
+    Args:
+        phase_num_qubit (int): the number of qubits that the phase gate acts on.
+        phase (float): the phase angle of the phase gate.
+        max_num_qubit_control (int): the maximum number of qubits that the controlled-phase gates can control.
+    Returns:
+        QuantumCircuit: the circuit that implements the decomposed phase gate.
+    """
+    phase_num_qubit = len(qr)
+    if phase_num_qubit == 1:
+        circuit.p(phase,0)
+    elif phase_num_qubit == 2:
+        circuit.cp(phase,0,1)
+    else:
+        ## convert into the multi-cx gate 
+        ## partition qubits into two sets
+        half_num_qubit = phase_num_qubit//2
+        qr1 = qr[:half_num_qubit]
+        qr2 = qr[half_num_qubit:]
+        circuit.rz(-phase/2,ancilla[0])
+        circuit.mcx(qr1,ancilla[0],ancilla[1],mode='recursion')
+        circuit.rz(phase/2,ancilla[0])
+        circuit.mcx(qr2,ancilla[0],ancilla[1],mode='recursion')
+        circuit.rz(-phase/2,ancilla[0])
+        circuit.mcx(qr1,ancilla[0],ancilla[1],mode='recursion')
+        circuit.rz(phase/2,ancilla[0])
+        circuit.mcx(qr2,ancilla[0],ancilla[1],mode='recursion')
+
+
+
+def get_driver_component(num_qubits,t,bitstring,use_decompose=True):
     qc = QuantumCircuit(num_qubits)
+    ancilla = QuantumRegister(2,name='anc')
+    qc.add_register(ancilla)
     reverse_apply_convert(qc,bitstring)
     qc.barrier(label='convert')
-    qc.mcp(-2*np.pi * t, list(range(1,num_qubits)),0)
+    qr = qc.qubits[:num_qubits]
+    if use_decompose:
+        decompose_phase_gate(qc,qr,ancilla,-2*np.pi * t)
+    else:
+        qc.mcp(-2*np.pi * t, list(range(1,num_qubits)),0)
+    
     qc.barrier(label='multi-ctrl')
     qc.x(num_qubits-1)
-    
-    qc.mcp(2*np.pi * t, list(range(1,num_qubits)),0)
+    if use_decompose:
+        decompose_phase_gate(qc,qr,ancilla,2*np.pi * t)
+    else:
+        qc.mcp(2*np.pi * t, list(range(1,num_qubits)),0)
     qc.x(num_qubits-1)
     qc.barrier(label='reverse')
     # qc.mcp(-2*np.pi * t, list(range(num_qubits-1)),num_qubits-1)
     apply_convert(qc,bitstring)
     return qc
 
-from qiskit import QuantumCircuit
-from qiskit_aer import Aer
-from qiskit.circuit.library import MCMT
-from qiskit import transpile
-from scipy.linalg import expm
-import numpy as np
+
 
 # 输入qc, 返回电路酉矩阵
 def get_circ_unitary(quantum_circuit):
@@ -90,19 +130,6 @@ def get_simulate_unitary(t,bitstring):
     U = expm(-1j * 2 * np.pi * t * (tensor_product(bitstring)+tensor_product([not(i) for i in bitstring])))
     return U
 
-def get_decompose_gate(qubits,max_control_qubits=5):
-    if qubits <= max_control_qubits:
-        return 1
-    else:
-        return 3*get_decompose_gate(qubits-1,max_control_qubits)+4
-
-def get_decompose_depth(qubits,max_control_qubits=5):
-    if qubits <= max_control_qubits:
-        return 1
-    else:
-        return 3*get_decompose_depth(qubits-1,max_control_qubits)+2
-
-
 def decompose_unitary(t,bitstring):
     unitary = get_simulate_unitary(t,bitstring)
     qc = QuantumCircuit(len(bitstring))
@@ -111,8 +138,10 @@ def decompose_unitary(t,bitstring):
 
 def decompose_circuit(qc,max_control_qubits=5):
     from qiskit import transpile
-    controlphase = ''.join(['c']*max_control_qubits+['p'])
-    qc = transpile(qc, basis_gates=[controlphase,'h','x','y','cx','barrier','p'],optimization_level=3)
+    control_gates =[]
+    for i in range(1,max_control_qubits+1):
+        control_gates.append(''.join(['c']*i+['z']))
+    qc = transpile(qc, basis_gates=[''.join(['c']*max_control_qubits+['z']),'h','x','y','cx','barrier','p'],optimization_level=3)
     return qc
 
 if __name__ == '__main__':
@@ -135,14 +164,13 @@ if __name__ == '__main__':
         write_string += str(num_q)+','+str(num_q)+','+str(initime)+','+str(depth)+','+str(num_gates)+',\n'
         ## decompose into multi-qubit gates
         start = perf_counter()
-        for i in range(2,num_q):
+        for i in range(6,1,-1):
             start = perf_counter()
-            phasedecompgate = get_decompose_gate(num_q,max_control_qubits=i)
-            phasedecompdepth = get_decompose_depth(num_q,max_control_qubits=i)
+            transpile_circuit = decompose_circuit(qc,i)
             end = perf_counter()
             dtime = end-start
-            depth = qc.depth()-2+phasedecompdepth
-            num_gates = len(qc.data)-2+phasedecompgate
+            depth = transpile_circuit.depth()
+            num_gates = transpile_circuit.num_nonlocal_gates()
             dtime += initime
             print('max_control_qubits:',i)
             print('depth:',depth)
@@ -164,7 +192,7 @@ if __name__ == '__main__':
             f.write(write_string)
         return time
     times = []
-    with open('data/decompose_result.csv','a') as f:
+    with open('implementations/data/decompose_result.csv','w') as f:
         f.write('num_qubits,ours,unitary\n')
         for i in range(3,9):
             bitstring = np.random.randint(2,size=i)
@@ -207,6 +235,6 @@ if __name__ == '__main__':
     axes.set_xticklabels(df.index+3)
     axes.grid(axis='y',linestyle='--',linewidth=3,color='#B0B0B0')
     axes.set_ylabel('Time (s)')
-    fig.savefig('figures/decompose_optimize.pdf',dpi=600,format='pdf',bbox_inches='tight')
+    fig.savefig('implementations/figures/decompose_optimize.pdf',dpi=600,format='pdf',bbox_inches='tight')
 
     
