@@ -4,7 +4,7 @@ from ...utils.quantum_lib import *
 import numpy as np
 import numpy.linalg as ls
 from scipy.linalg import expm
-from .penneylane_decompose import get_driver_component as get_driver_component_pennylane
+from .pennylane_decompose import driver_component as driver_component_pennylane
 from ...models import CircuitOption
 
 def plus_minus_gate_sequence_to_unitary(s):
@@ -34,7 +34,7 @@ class PennylaneCircuit:
 
     # 先给出不同电路的函数，变量初始化在此之后
     def create_circuit(self):
-        is_decompose = self.circuit_option.is_decompose
+        use_decompose = self.circuit_option.use_decompose
         by_Ho_gate_list = self.circuit_option.by_Ho_gate_list
         Ho_gate_list = self.circuit_option.Ho_gate_list
         Ho_vector = self.circuit_option.linear_objective_vector
@@ -43,7 +43,7 @@ class PennylaneCircuit:
         num_qubits = self.num_qubits
         num_layers = self.num_layers
         algorithm_optimization_method = self.circuit_option.algorithm_optimization_method
-        dev = qml.device("default.qubit", wires=num_qubits)
+        dev = qml.device("default.qubit", wires=num_qubits + 1)
         def add_in_target(num_qubits, target_qubit, gate):
             H = np.eye(2 ** (target_qubit))
             H = np.kron(H, gate)
@@ -68,9 +68,9 @@ class PennylaneCircuit:
                 #     qml.PauliX(i)
                 qml.Hadamard(i)
             for layer in range(num_layers):
-                if is_decompose == True:
+                if use_decompose == True:
                     pass
-                elif is_decompose == False:
+                elif use_decompose == False:
                     if by_Ho_gate_list == True:
                         pass
                     elif by_Ho_gate_list == False:
@@ -110,7 +110,7 @@ class PennylaneCircuit:
             for i in others_qubit_set:
                 qml.Hadamard(i)                    
             for layer in range(num_layers):
-                if is_decompose:
+                if use_decompose:
                     pass
                 else:
                     if by_Ho_gate_list == True:
@@ -160,13 +160,13 @@ class PennylaneCircuit:
                         Ho += Ho_mi
                     qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 # 惩罚约束
-                for bitstrings in range(len(Hd_bits_list)):
-                    hd_bits = Hd_bits_list[bitstrings]
+                for bit_strings in range(len(Hd_bits_list)):
+                    hd_bits = Hd_bits_list[bit_strings]
                     nonzero_indices = np.nonzero(hd_bits)[0]
                     nonzerobits = hd_bits[nonzero_indices]
-                    if is_decompose:
-                        pass
-                        # get_driver_component_pennylane(num_qubits, Hd_params[layer], nonzerobits, nonzero_indices)
+                    hdi_string = [0 if x == -1 else 1 for x in hd_bits if x != 0]
+                    if use_decompose:
+                        driver_component_pennylane(nonzero_indices, [num_qubits] ,hdi_string, 1j * Hd_params[layer])
                     else:
                         qml.QubitUnitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), wires=nonzero_indices)
             return qml.probs(wires=range(num_qubits))

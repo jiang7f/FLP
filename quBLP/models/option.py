@@ -18,7 +18,7 @@ class CircuitOption:
     objective: Callable
     algorithm_optimization_method: str
     optimization_direction: str
-    is_decompose: bool
+    use_decompose: bool
     need_draw: bool
     penalty_lambda: float = None
     by_Ho_gate_list: bool = True
