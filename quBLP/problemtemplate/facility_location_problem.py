@@ -50,6 +50,13 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)
         pass
+
+    @property
+    def Ho_gate_list(self):
+        theta_list = self.linear_objective_vector
+        gate_list = [[[i], theta_list[i]] for i in range(len(theta_list))]
+        return gate_list
+    
     @property
     def linear_constraints(self):
         n = self.n

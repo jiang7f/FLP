@@ -73,7 +73,10 @@ class ConstrainedBinaryOptimization(Model):
         self.probs = None
         self.optimization_direction = None
         self.cost_dir = 0
-        self.Ho_gate_list = []
+        # self.Ho_gate_list yeld by @property
+        self.objective_penalty = None
+        self.objective_cyclic = None
+        self.objective_commute = None
         pass
 
     def set_optimization_direction(self, dir):
@@ -179,7 +182,8 @@ class ConstrainedBinaryOptimization(Model):
             self.constraints_for_others.append(coefficients)
     @property
     def constraints(self):
-        return np.array(self.constraints_for_cyclic + self.constraints_for_others)
+        cstt = np.array(self.constraints_for_cyclic + self.constraints_for_others)
+        return cstt
     
     def add_objective(self, expr):
         coefficients = np.zeros(len(self.variables) + 1)
@@ -218,7 +222,7 @@ class ConstrainedBinaryOptimization(Model):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
         # 如果不使用解析的解系, 高斯消元求解
-        basic_vector = find_basic_solution(self.constraints[:,:-1])
+        basic_vector = find_basic_solution(self.constraints[:,:-1]) if len(self.constraints) > 0 else []
         return basic_vector
     def add_objective(self,objectivefunc):
         self.objective = objectivefunc
@@ -231,7 +235,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, by_Ho_gate_list=True, use_decompose=False) -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False) -> None: 
 
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
@@ -255,7 +259,7 @@ class ConstrainedBinaryOptimization(Model):
             linear_objective_vector=self.linear_objective_vector,
             nonlinear_objective_matrix=self.nonlinear_objective_matrix,
             need_draw=need_draw,
-            by_Ho_gate_list=by_Ho_gate_list,
+            use_Ho_gate_list=use_Ho_gate_list,
             Ho_gate_list = self.Ho_gate_list,
             penalty_lambda = self.penalty_lambda,
             constraints = self.constraints,

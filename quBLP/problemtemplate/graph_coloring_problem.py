@@ -46,7 +46,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         self.objective_commute = self.objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
         # 加目标函数
-        self.nolinear_objective_matrix = [self.generate_Hp]
+        self.nonlinear_objective_matrix = [self.generate_Hp]
         # 约束放到 self.constraints 里
         for cstrt in self.linear_constraints:
             self._add_linear_constraint(cstrt)

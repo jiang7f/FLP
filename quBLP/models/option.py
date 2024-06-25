@@ -21,7 +21,7 @@ class CircuitOption:
     use_decompose: bool
     need_draw: bool
     penalty_lambda: float = None
-    by_Ho_gate_list: bool = True
+    use_Ho_gate_list: bool = True
     Ho_gate_list: List[List[int]] = field(default_factory=list)
     feasiable_state: List[int] = field(default_factory=list)
     linear_objective_vector: List[float] = field(default_factory=list)
