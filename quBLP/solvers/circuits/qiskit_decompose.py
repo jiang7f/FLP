@@ -6,76 +6,88 @@ from scipy.linalg import expm
 import numpy as np
 
 
-def apply_convert(qc, bit_string):
+def apply_convert(qc, list_qubits, bit_string):
     num_qubits = len(bit_string)
     bit_string = bit_string[::-1]
     for i in range(0, num_qubits - 1):
-        qc.cx(i + 1, i)
+        qc.cx(list_qubits[i + 1], list_qubits[i])
         if bit_string[i] == bit_string[i + 1]:
-            qc.x(i)
-    qc.h(num_qubits - 1)
-    qc.x(num_qubits - 1)
+            qc.x(list_qubits[i])
+    qc.h(list_qubits[num_qubits - 1])
+    qc.x(list_qubits[num_qubits - 1])
 
-def apply_reverse(qc, bit_string):
+def apply_reverse(qc, list_qubits, bit_string):
     num_qubits = len(bit_string)
     bit_string = bit_string[::-1]
-    qc.x(num_qubits - 1)
-    qc.h(num_qubits - 1)
+    qc.x(list_qubits[num_qubits - 1])
+    qc.h(list_qubits[num_qubits - 1])
     for i in range(num_qubits - 2, -1, -1):
         if bit_string[i] == bit_string[i + 1]:
-            qc.x(i)
-        qc.cx(i + 1, i)
+            qc.x(list_qubits[i])
+        qc.cx(list_qubits[i + 1], list_qubits[i])
 
-def decompose_phase_gate(circuit:QuantumCircuit, qr:QuantumRegister, ancilla:QuantumRegister, phase:float) -> QuantumCircuit:
+def decompose_phase_gate(qc:QuantumCircuit, list_qubits:list, list_ancilla:list, phase:float) -> QuantumCircuit:
     """
     Decompose a phase gate into a series of controlled-phase gates.
     Args:
-        num_phase_qubits (int): the number of qubits that the phase gate acts on.
+        num_qubits (int): the number of qubits that the phase gate acts on.
         phase (float): the phase angle of the phase gate.
         max_num_qubit_control (int): the maximum number of qubits that the controlled-phase gates can control.
     Returns:
         QuantumCircuit: the circuit that implements the decomposed phase gate.
     """
-    num_phase_qubits = len(qr)
-    if num_phase_qubits == 1:
-        circuit.p(phase, 0)
-    elif num_phase_qubits == 2:
-        circuit.cp(phase, 0, 1)
+    num_qubits = len(list_qubits)
+    if num_qubits == 1:
+        qc.p(phase, list_qubits[0])
+    elif num_qubits == 2:
+        qc.cp(phase, list_qubits[0], list_qubits[1])
     else:
         # convert into the multi-cx gate 
         # partition qubits into two sets
-        half_num_qubit = num_phase_qubits // 2
-        qr1 = qr[:half_num_qubit]
-        qr2 = qr[half_num_qubit:]
-        circuit.rz(-phase/2, ancilla[0])
-        circuit.mcx(qr1, ancilla[0], ancilla[1], mode='recursion')
-        circuit.rz(phase/2, ancilla[0])
-        circuit.mcx(qr2, ancilla[0], ancilla[1], mode='recursion')
-        circuit.rz(-phase/2, ancilla[0])
-        circuit.mcx(qr1, ancilla[0], ancilla[1], mode='recursion')
-        circuit.rz(phase/2, ancilla[0])
-        circuit.mcx(qr2, ancilla[0], ancilla[1], mode='recursion')
+        half_num_qubit = num_qubits // 2
+        qr1 = list_qubits[:half_num_qubit]
+        qr2 = list_qubits[half_num_qubit:]
+        qc.rz(-phase/2, list_ancilla[0])
+        # use ", mode='recursion'" without transpile will raise error 'unknown instruction: mcx_recursive'
+        qc.mcx(qr1, list_ancilla[0], list_ancilla[1])
+        qc.rz(phase/2, list_ancilla[0])
+        qc.mcx(qr2, list_ancilla[0], list_ancilla[1])
+        qc.rz(-phase/2, list_ancilla[0])
+        qc.mcx(qr1, list_ancilla[0], list_ancilla[1])
+        qc.rz(phase/2, list_ancilla[0])
+        qc.mcx(qr2, list_ancilla[0], list_ancilla[1])
+
+# separate functions facilitate library calls
+def driver_component(qc:QuantumCircuit, list_qubits:list, list_ancilla:list, bit_string:str, phase:float):
+    # o.O get <class 'pennylane.numpy.tensor.tensor'> to fix
+    apply_convert(qc, list_qubits, bit_string)
+    decompose_phase_gate(qc, list_qubits, list_ancilla, -phase)
+    qc.x(list_qubits[-1])
+    decompose_phase_gate(qc, list_qubits, list_ancilla, phase)
+    qc.x(list_qubits[-1])
+    apply_reverse(qc, list_qubits, bit_string)
 
 def get_driver_component(num_qubits, t, bit_string, use_decompose=True):
+    list_qubits = list(range(num_qubits))
+    list_ancilla = [num_qubits, num_qubits + 1]
     qc = QuantumCircuit(num_qubits)
-    apply_convert(qc, bit_string)
+    apply_convert(qc, list_qubits, bit_string)
     qc.barrier(label='convert')
-    qr = qc.qubits[:num_qubits]
     if use_decompose == True:
         ancilla = QuantumRegister(2,name='anc')
         qc.add_register(ancilla)
-        decompose_phase_gate(qc, qr, ancilla, -2 * np.pi * t)
+        decompose_phase_gate(qc, list_qubits, list_ancilla, -2 * np.pi * t)
     else:
-        qc.mcp(-2 * np.pi * t, list(range(1, num_qubits)), 0)
+        qc.mcp(-2 * np.pi * t, list_qubits[1:], 0)
     qc.barrier(label='multi-ctrl')
     qc.x(num_qubits - 1)
     if use_decompose == True:
-        decompose_phase_gate(qc, qr, ancilla, 2 * np.pi * t)
+        decompose_phase_gate(qc, list_qubits, list_ancilla, 2 * np.pi * t)
     else:
-        qc.mcp(2 * np.pi * t, list(range(1, num_qubits)), 0)
+        qc.mcp(2 * np.pi * t, list_qubits[1:], 0)
     qc.x(num_qubits - 1)
     qc.barrier(label='reverse')
-    apply_reverse(qc, bit_string)
+    apply_reverse(qc, list_qubits, bit_string)
     return qc
 
 # 输入qc, 返回电路酉矩阵
@@ -129,7 +141,8 @@ if __name__ == '__main__':
         write_string = ''
         num_qubits = len(bit_string)
         time_start = perf_counter()
-        qc = get_driver_component(num_qubits, t, bit_string, False)
+        qc = get_driver_component(num_qubits, t, bit_string, True)
+        # print(bit_string)
         # print(get_simulate_unitary(t, bit_string))
         # print(get_circ_unitary(qc))
         # print(np.allclose(get_circ_unitary(qc), get_simulate_unitary(t, bit_string)))

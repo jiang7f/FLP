@@ -1,5 +1,5 @@
-import pennylane as qml
-from pennylane import numpy as np
+import numpy as np
+# from pennylane import numpy as np
 from tqdm import tqdm
 from ...models import OptimizerOption
 def gradient_by_param_shift_pauli(params, cost_function):
@@ -75,5 +75,6 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
 
 # def train_gradient(num_params, cost_function, max_iter, learning_rate, beta1, beta2):
 def train_gradient(optimizer_option: OptimizerOption):
-    params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params, requires_grad=False)
+    # , requires_grad=False
+    params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
     return adam_optimizer(params, optimizer_option.cost_function, optimizer_option.max_iter, optimizer_option.learning_rate, optimizer_option.beta1, optimizer_option.beta2)

@@ -1,17 +1,22 @@
-from .circuits import PennylaneCircuit
+from .circuits import PennylaneCircuit, QiskitCircuit
 from .optimizer import train_gradient, train_non_gradient
 from ..models import OptimizerOption, CircuitOption
 import numpy as np
 def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     print(f'algorithm_optimization_method: {circuit_option.algorithm_optimization_method}') #+
-    circuit = PennylaneCircuit(circuit_option)
+    if circuit_option.circuit_type == 'pennylane':
+        circuit = PennylaneCircuit(circuit_option)
+    elif circuit_option.circuit_type == 'qiskit':
+        circuit = QiskitCircuit(circuit_option)
+
     if circuit_option.algorithm_optimization_method == 'HEA':
         num_params = circuit_option.num_layers * circuit_option.num_qubits * 3
-        print(num_params, circuit_option.num_layers, circuit_option.num_qubits)
     else:
         num_params = circuit_option.num_layers * 2
+
     optimizer_option.num_params = num_params
-    optimizer_option.cost_function = circuit.create_circuit()
+    circuit.create_circuit()
+    optimizer_option.cost_function = circuit.get_costfunc()
     if circuit_option.need_draw:
         circuit.draw_circuit()
     # 测试一组预设参数的结果

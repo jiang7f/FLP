@@ -21,16 +21,16 @@ def apply_reverse(list_qubits, bit_string):
             qml.PauliX(list_qubits[i])
         qml.CNOT(wires=[list_qubits[i + 1], list_qubits[i]])
 
-def decompose_phase_gate(qr, ancilla, phase):
-    num_qubits = len(qr)
+def decompose_phase_gate(list_qubits, ancilla, phase):
+    num_qubits = len(list_qubits)
     if num_qubits == 1:
-        qml.PhaseShift(phase, wires=qr[0])
+        qml.PhaseShift(phase, wires=list_qubits[0])
     elif num_qubits == 2:
-        qml.ControlledPhaseShift(phase, wires=qr)
+        qml.ControlledPhaseShift(phase, wires=list_qubits)
     else:
         half_num_qubit = num_qubits // 2
-        qr1 = qr[:half_num_qubit]
-        qr2 = qr[half_num_qubit:]
+        qr1 = list_qubits[:half_num_qubit]
+        qr2 = list_qubits[half_num_qubit:]
         qml.RZ(-phase/2, wires=ancilla[0])
         qml.MultiControlledX(wires=list(qr1) + [ancilla[0]])
         qml.RZ(phase/2, wires=ancilla[0])

@@ -13,6 +13,7 @@ class OptimizerOption:
 
 @dataclass
 class CircuitOption:
+    circuit_type: str
     num_qubits: int
     num_layers: int
     objective: Callable

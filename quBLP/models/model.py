@@ -235,7 +235,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False) -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False, circuit_type='pennylane') -> None: 
 
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
@@ -249,6 +249,7 @@ class ConstrainedBinaryOptimization(Model):
         )
 
         circuit_option = CircuitOption(
+            circuit_type=circuit_type,
             num_qubits=len(self.variables),
             num_layers=num_layers,
             objective=None,
