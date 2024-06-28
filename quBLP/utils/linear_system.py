@@ -4,6 +4,28 @@ import numpy as np
 def set_print_form(suppress=True, precision=4, linewidth=300):
     # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
     np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
+
+# 张量积逆序
+def reorder_tensor_product(matrix):
+  dim = matrix.shape[0]
+  n = int(np.log2(dim))
+  m = matrix.reshape([2]*(2 * n))
+  m = np.transpose(m, axes=(list(range(n - 1, -1, -1)) + list(range(2 * n - 1, n - 1, -1))))
+  m = m.reshape(2**n, 2**n)
+  return m
+
+# 输入qc, 返回电路酉矩阵 (张量积逆序)
+def get_circ_unitary(quantum_circuit):
+    from qiskit_aer import Aer
+    from qiskit import transpile
+    backend = Aer.get_backend('unitary_simulator' )
+    new_circuit = transpile(quantum_circuit, backend)
+    job = backend.run(new_circuit)
+    result = job.result()
+    unitary = result.get_unitary()
+    reoder_unitary = reorder_tensor_product(np.array(unitary))
+    return reoder_unitary
+
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):
     """Convert a matrix to row echelon form."""

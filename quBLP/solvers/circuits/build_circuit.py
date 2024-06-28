@@ -259,7 +259,7 @@ class QiskitCircuit:
     def inference(self, params, shots=1024):
         backend = Aer.get_backend('qasm_simulator')
         qc = self.inference_circuit(params)
-        # qc = transpile(qc, basis_gates=['h', 'x', 'y', 'cx', 'barrier', 'p'], optimization_level=3)
+        # qc = transpile(qc, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'], optimization_level=3)
         counts = backend.run(qc, seed_simulator=10, shots=shots).result().get_counts()
         collapse_state = [[int(char) for char in state] for state in counts.keys()]
         total_count = sum(counts.values())
@@ -276,9 +276,7 @@ class QiskitCircuit:
         num_qubits = self.num_qubits
         num_layers = self.num_layers
         algorithm_optimization_method = self.circuit_option.algorithm_optimization_method
-        
-        qc = QuantumCircuit(num_qubits + 2, num_qubits)
-        
+                
         def add_in_target(num_qubits, target_qubit, gate):
             H = np.eye(2 ** (target_qubit))
             H = np.kron(H, gate)
@@ -291,7 +289,7 @@ class QiskitCircuit:
                 Hd += (add_in_target(n, i, gate_x) @ add_in_target(n, j, gate_x) + add_in_target(n, i, gate_y) @ add_in_target(n, j, gate_y))
             return -Hd
         
-        # change positive order index to qiskit index
+        # change positive order index to qiskit order
         def qt(pi, bound=num_qubits + 2):
             if not isinstance(pi, Iterable):
                 return bound - 1 - pi
@@ -299,6 +297,7 @@ class QiskitCircuit:
                 return [qt(p, bound) for p in pi]
 
         def circuit_penalty(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
@@ -336,10 +335,11 @@ class QiskitCircuit:
                 # Rx 驱动哈密顿量
                 for i in range(num_qubits):
                     qc.rx(Hd_params[layer], qt(i))
-            qc.measure(qt(range(num_qubits)), range(num_qubits))
+            qc.measure(qt(range(num_qubits)), range(num_qubits - 1, -1, -1))
             return qc
 
         def circuit_cyclic(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
@@ -392,12 +392,14 @@ class QiskitCircuit:
             return qc
         
         def circuit_commute(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
             Hd_bits_list = self.circuit_option.Hd_bits_list
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qc.x(qt(i))
+            qc.barrier(label='layer')
             for layer in range(num_layers):
                 if use_Ho_gate_list == True:
                     for i_list, theta in Ho_gate_list:
@@ -424,10 +426,12 @@ class QiskitCircuit:
                         driver_component_qiskit(qc, qt(nonzero_indices), qt([num_qubits, num_qubits + 1]) ,hdi_string, Hd_params[layer])
                     else:
                         qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), qt(nonzero_indices))
-            qc.measure(qt(range(num_qubits)), range(num_qubits))
+            qc.barrier(label='end')
+            qc.measure(qt(range(num_qubits)), range(num_qubits - 1, -1, -1))
             return qc
         
         def circuit_HEA(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             params = np.array(params).reshape((num_layers, num_qubits, 3))
             r1_params = params[:, :, 0]
             r2_params = params[:, :, 1]
