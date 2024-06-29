@@ -280,11 +280,11 @@ class QiskitCircuit:
 
     def inference(self, params, shots=1024):
         # backend = FakeQuebec()
-        # backend = FakeAlmadenV2()
-        backend = AerSimulator()
+        backend = FakeAlmadenV2()
+        # backend = AerSimulator()
         qc = self.inference_circuit(params)
-        # pm = generate_preset_pass_manager(backend=backend, optimization_level=2)
-        pm = generate_preset_pass_manager(optimization_level=2,basis_gates=['ecr', 'id', 'rz', 'sx','x'])
+        pm = generate_preset_pass_manager(backend=backend, optimization_level=2)
+        # pm = generate_preset_pass_manager(optimization_level=2,basis_gates=['ecr', 'id', 'rz', 'sx','x'])
         transpiled_qc = pm.run(qc)
         if self.circuit_option.debug:
             print("transpiled_qc.depth()", transpiled_qc.depth())
@@ -501,10 +501,10 @@ class QiskitCircuit:
                     nonzerobits = hd_bits[nonzero_indices]
                     hdi_string = [0 if x == -1 else 1 for x in hd_bits if x != 0]
                     if use_decompose:
-                        driver_component_qiskit(qc, nonzero_indices, ancilla ,hdi_string, Hd_params[layer])
+                        driver_component_qiskit(qc, nonzero_indices, ancilla ,hdi_string[::-1], Hd_params[layer])
                     else:
                         qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices)
-            qc.measure(range(num_qubits), range(num_qubits))
+            qc.measure(range(num_qubits), range(num_qubits)[::-1])
             return qc
         
         def circuit_HEA(params):
