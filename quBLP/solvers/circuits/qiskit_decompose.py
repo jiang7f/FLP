@@ -8,7 +8,6 @@ from .toffolidecompose import mcx_nancillary_log_depth
 from typing import List, Union, Tuple, Iterable
 def apply_convert(qc, list_qubits, bit_string):
     num_qubits = len(bit_string)
-    bit_string = bit_string[::-1]
     for i in range(0, num_qubits - 1):
         qc.cx(list_qubits[i + 1], list_qubits[i])
         if bit_string[i] == bit_string[i + 1]:
@@ -18,7 +17,6 @@ def apply_convert(qc, list_qubits, bit_string):
 
 def apply_reverse(qc, list_qubits, bit_string):
     num_qubits = len(bit_string)
-    bit_string = bit_string[::-1]
     qc.x(list_qubits[num_qubits - 1])
     qc.h(list_qubits[num_qubits - 1])
     for i in range(num_qubits - 2, -1, -1):
@@ -107,7 +105,10 @@ def get_circ_unitary(quantum_circuit):
     job = backend.run(new_circuit)
     result = job.result()
     unitary = result.get_unitary()
-    return unitary
+    from quBLP.utils.linear_system import reorder_tensor_product
+    reoder_unitary = reorder_tensor_product(np.array(unitary))
+    # 张量积逆序
+    return reoder_unitary
 
 def tensor_product(matrices):
     sigma_plus = np.array([[0, 1], [0, 0]])
@@ -148,7 +149,7 @@ if __name__ == '__main__':
         write_string = ''
         num_qubits = len(bit_string)
         time_start = perf_counter()
-        qc = get_driver_component(num_qubits, t, bit_string, True)
+        qc = get_driver_component(num_qubits, t, bit_string, False)
         # print(bit_string)
         # print(get_simulate_unitary(t, bit_string))
         # print(get_circ_unitary(qc))
@@ -198,7 +199,7 @@ if __name__ == '__main__':
         f.write('num_qubits, ours, unitary\n')
         for i in range(3, 9):
             bit_string = np.random.randint(2, size=i)
-            # bit_string = [0,1,0, 1, 1,1,1]
+            # bit_string = [0, 1, 0, 1, 1, 1, 1]
             print(f'num_qubits: {i}')
             time = get_decompose_time(bit_string, f)
             time_list.append(time)

@@ -337,6 +337,7 @@ class QiskitCircuit:
             return -Hd
 
         def circuit_penalty(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
@@ -388,6 +389,7 @@ class QiskitCircuit:
             return qc
 
         def circuit_cyclic(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
@@ -468,6 +470,7 @@ class QiskitCircuit:
             return qc
         
         def circuit_commute(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
@@ -504,6 +507,7 @@ class QiskitCircuit:
             return qc
         
         def circuit_HEA(params):
+            qc = QuantumCircuit(num_qubits + 2, num_qubits)
             params = np.array(params).reshape((num_layers, num_qubits, 3))
             r1_params = params[:, :, 0]
             r2_params = params[:, :, 1]
