@@ -312,6 +312,7 @@ class QiskitCircuit:
         num_layers = self.num_layers
         algorithm_optimization_method = self.circuit_option.algorithm_optimization_method
 
+        
         if algorithm_optimization_method == 'commute':
             if self.circuit_option.mcx_mode == 'constant':
                 qc = QuantumCircuit(num_qubits + 2, num_qubits)
@@ -364,7 +365,7 @@ class QiskitCircuit:
                     for penalty_mi in constraints:
                         coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
                         for i in range(num_qubits):
-                            qc.rz(coeff*penalty_mi[i]*Ho_params[layer], i)
+                            qc.rz(-coeff*penalty_mi[i]*Ho_params[layer], i)
                         for i in range(num_qubits-1):
                             for j in range(i+1, num_qubits):
                                 if penalty_mi[i] != 0 and penalty_mi[j] != 0:
