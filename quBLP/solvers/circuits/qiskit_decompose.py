@@ -4,8 +4,8 @@ from qiskit_aer import Aer
 from qiskit import transpile
 from scipy.linalg import expm
 import numpy as np
-
-
+from quBLP.solvers.circuits.toffoli_decompose import mcx_nancillary_log_depth
+from typing import List, Union, Tuple, Iterable
 def apply_convert(qc, list_qubits, bit_string):
     num_qubits = len(bit_string)
     for i in range(0, num_qubits - 1):
@@ -24,13 +24,25 @@ def apply_reverse(qc, list_qubits, bit_string):
             qc.x(list_qubits[i])
         qc.cx(list_qubits[i + 1], list_qubits[i])
 
-def decompose_phase_gate(qc:QuantumCircuit, list_qubits:list, list_ancilla:list, phase:float) -> QuantumCircuit:
+def mcx_gate_decompose(qc:QuantumCircuit, list_controls:Iterable, qubit_target:int, list_ancilla:Iterable, mcx_mode):
+    if mcx_mode == 'constant':
+        qc.mcx(list_controls, qubit_target, list_ancilla[0], mode='recursion')
+    elif mcx_mode == 'linear':
+        mcx_nancillary_log_depth(qc,list_controls, qubit_target, list_ancilla)
+    else:
+        qc.mcx(list_controls, qubit_target, list_ancilla[0])
+
+def decompose_phase_gate(qc:QuantumCircuit, list_qubits:list, list_ancilla:list, phase:float, mcx_mode) -> QuantumCircuit:
     """
     Decompose a phase gate into a series of controlled-phase gates.
     Args:
-        num_qubits (int): the number of qubits that the phase gate acts on.
+        qc
+        list_qubits
+        list_ancilla
         phase (float): the phase angle of the phase gate.
-        max_num_qubit_control (int): the maximum number of qubits that the controlled-phase gates can control.
+        mcx_mode (str): the type of ancillary qubits used in the controlled-phase gates.
+            'constant': use a constant number of ancillary qubits for all controlled-phase gates.
+            'linear': use a linear number of ancillary qubits to guarantee logarithmic depth.
     Returns:
         QuantumCircuit: the circuit that implements the decomposed phase gate.
     """
@@ -47,21 +59,20 @@ def decompose_phase_gate(qc:QuantumCircuit, list_qubits:list, list_ancilla:list,
         qr2 = list_qubits[half_num_qubit:]
         qc.rz(-phase/2, list_ancilla[0])
         # use ", mode='recursion'" without transpile will raise error 'unknown instruction: mcx_recursive'
-        qc.mcx(qr1, list_ancilla[0], list_ancilla[1])
+        mcx_gate_decompose(qc, qr1, list_ancilla[0], list_ancilla[1:], mcx_mode)
         qc.rz(phase/2, list_ancilla[0])
-        qc.mcx(qr2, list_ancilla[0], list_ancilla[1])
+        mcx_gate_decompose(qc, qr2, list_ancilla[0], list_ancilla[1:], mcx_mode)
         qc.rz(-phase/2, list_ancilla[0])
-        qc.mcx(qr1, list_ancilla[0], list_ancilla[1])
+        mcx_gate_decompose(qc, qr1, list_ancilla[0], list_ancilla[1:], mcx_mode)
         qc.rz(phase/2, list_ancilla[0])
-        qc.mcx(qr2, list_ancilla[0], list_ancilla[1])
+        mcx_gate_decompose(qc, qr2, list_ancilla[0], list_ancilla[1:], mcx_mode)
 
 # separate functions facilitate library calls
-def driver_component(qc:QuantumCircuit, list_qubits:list, list_ancilla:list, bit_string:str, phase:float):
-    # o.O get <class 'pennylane.numpy.tensor.tensor'> to fix
+def driver_component(qc:QuantumCircuit, list_qubits:Iterable, list_ancilla:Iterable, bit_string:str, phase:float, mcx_mode:str='linear'):
     apply_convert(qc, list_qubits, bit_string)
-    decompose_phase_gate(qc, list_qubits, list_ancilla, -phase)
+    decompose_phase_gate(qc, list_qubits, list_ancilla, -phase, mcx_mode)
     qc.x(list_qubits[-1])
-    decompose_phase_gate(qc, list_qubits, list_ancilla, phase)
+    decompose_phase_gate(qc, list_qubits, list_ancilla, phase, mcx_mode)
     qc.x(list_qubits[-1])
     apply_reverse(qc, list_qubits, bit_string)
 
@@ -74,13 +85,13 @@ def get_driver_component(num_qubits, t, bit_string, use_decompose=True):
     if use_decompose == True:
         ancilla = QuantumRegister(2,name='anc')
         qc.add_register(ancilla)
-        decompose_phase_gate(qc, list_qubits, list_ancilla, -2 * np.pi * t)
+        decompose_phase_gate(qc, list_qubits, list_ancilla, -2 * np.pi * t, 'constant')
     else:
         qc.mcp(-2 * np.pi * t, list_qubits[1:], 0)
     qc.barrier(label='multi-ctrl')
     qc.x(num_qubits - 1)
     if use_decompose == True:
-        decompose_phase_gate(qc, list_qubits, list_ancilla, 2 * np.pi * t)
+        decompose_phase_gate(qc, list_qubits, list_ancilla, 2 * np.pi * t, 'constant')
     else:
         qc.mcp(2 * np.pi * t, list_qubits[1:], 0)
     qc.x(num_qubits - 1)
@@ -121,14 +132,11 @@ def decompose_unitary(t, bit_string):
     qc.unitary(unitary, range(len(bit_string)))
     return qc.decompose()
 
-def decompose_circuit(qc, max_control_qubits=5):
-    from qiskit import transpile
-    control_gates = []
-    # do not work
-    # for i in range(1, max_control_qubits + 1):
-    #     control_gates.append(''.join(['c'] * i + ['z']))
-    qc = transpile(qc, basis_gates=[*control_gates, 'h', 'x', 'y', 'cx', 'barrier', 'p'], optimization_level=3)
-    return qc
+
+
+
+
+
 
 if __name__ == '__main__':
     def set_print_form(suppress=True, precision=4, linewidth=300):
@@ -162,7 +170,9 @@ if __name__ == '__main__':
         # decompose into multi-qubit gates
         for i in range(6, 1, -1):
             time_start = perf_counter()
-            transpile_circuit = decompose_circuit(qc, i)
+            transpile_circuit = qc
+            # db delated, 要讨论的话另外写
+            # transpile_circuit = decompose_circuit(qc, i) 
             time_end = perf_counter()
             time_decompose = time_end - time_start
             depth = transpile_circuit.depth()

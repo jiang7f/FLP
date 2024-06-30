@@ -89,6 +89,20 @@ class ConstrainedBinaryOptimization(Model):
         return self.probs[index]
     
     def set_algorithm_optimization_method(self, type='commute', penalty_lambda = None):
+        """
+        Set the optimization method for the algorithm.
+
+        Args:
+            type (str, optional): the optimization method for the algorithm. Defaults to 'commute'.
+
+                - 'commute': use the commute hamiltonian to optimize the problem.
+
+                - 'cyclic': use the cyclic hamiltonian to optimize the problem.
+
+                - 'penalty': use the penalty hamiltonian to optimize the problem.
+
+            penalty_lambda (float, optional): the penalty parameter for the algorithm. Defaults to None.
+        """
         self.algorithm_optimization_method = type
         self.penalty_lambda = penalty_lambda
 
@@ -235,7 +249,7 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False, circuit_type='pennylane') -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False, circuit_type='pennylane',mcx_mode='constant', debug=True, backend='FakeAlmadenV2', pass_manager='topo') -> None: 
 
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
@@ -253,6 +267,7 @@ class ConstrainedBinaryOptimization(Model):
             num_qubits=len(self.variables),
             num_layers=num_layers,
             objective=None,
+            mcx_mode=mcx_mode,
             algorithm_optimization_method=self.algorithm_optimization_method,
             feasiable_state=self.feasiable_state,
             optimization_direction=self.optimization_direction,
@@ -266,7 +281,10 @@ class ConstrainedBinaryOptimization(Model):
             constraints = self.constraints,
             constraints_for_cyclic = self.constraints_for_cyclic,
             constraints_for_others = self.constraints_for_others,
-            Hd_bits_list = self.get_driver_bitstr
+            Hd_bits_list = self.get_driver_bitstr,
+            debug=debug,
+            backend=backend,
+            pass_manager=pass_manager
         )
 
         objective_map = {

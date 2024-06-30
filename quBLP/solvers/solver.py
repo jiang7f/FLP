@@ -17,6 +17,7 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     optimizer_option.num_params = num_params
     circuit.create_circuit()
     optimizer_option.cost_function = circuit.get_costfunc()
+    print(optimizer_option.cost_function)
     if circuit_option.need_draw:
         circuit.draw_circuit()
     # 测试一组预设参数的结果
@@ -24,7 +25,6 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     test_maxprobidex = np.argmax(probs)
     print(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
     # 进行参数优化
-    print(circuit.inference_circuit) #-
     if optimizer_option.params_optimization_method == 'Adam':
         best_params = train_gradient(optimizer_option)
     elif optimizer_option.params_optimization_method == 'COBYLA':

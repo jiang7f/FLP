@@ -1,8 +1,14 @@
 from quBLP.problemtemplate import MaxCutProblem as MCP
-mcp = MCP(4,[[0,1], [1,2], [2,3]], False)
+mcp = MCP(4,[[0,1], [0,2], [0,3]], False)
 
-mcp.set_algorithm_optimization_method('penalty', 30)
-mcp.optimize(params_optimization_method='COBYLA', max_iter=300,num_layers=2, need_draw=True, use_Ho_gate_list=True, circuit_type='qiskit')
+mcp.set_algorithm_optimization_method('penalty')
+mcp.optimize(params_optimization_method='COBYLA',
+             max_iter=300,
+             num_layers=10, 
+             need_draw=True, 
+             use_Ho_gate_list=False, 
+             circuit_type='qiskit', 
+             debug=False)
 
 # print(mcp.collapse_state)
 # print(mcp.probs)

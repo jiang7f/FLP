@@ -21,6 +21,8 @@ class CircuitOption:
     optimization_direction: str
     use_decompose: bool
     need_draw: bool
+    mcx_mode: str # 'constant' for 2 additional ancillas with linear depth, 'linear' for n -1 additional ancilla with logarithmic depth
+    debug: bool = False
     penalty_lambda: float = None
     use_Ho_gate_list: bool = True
     Ho_gate_list: List[List[int]] = field(default_factory=list)
@@ -31,3 +33,5 @@ class CircuitOption:
     constraints_for_cyclic: List[List[float]] = field(default_factory=list)
     constraints_for_others: List[List[float]] = field(default_factory=list)
     Hd_bits_list: List[List[int]] = field(default_factory=list)
+    backend: str = 'FakeAlmadenV2' #'FakeQuebec' # 'AerSimulator'
+    pass_manager: str = 'topo'
