@@ -560,4 +560,3 @@ class QiskitCircuit:
             print(qc.assign_parameters(np.zeros(self.num_layers * self.num_qubits * 3)).draw())
         else:
             print(qc.assign_parameters(np.zeros(self.num_layers * 2)).draw())
-
