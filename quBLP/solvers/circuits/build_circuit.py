@@ -5,6 +5,7 @@ from qiskit_ibm_runtime.fake_provider import FakeKyoto, FakeKyiv, FakeSherbrooke
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from ...utils.quantum_lib import *
 from qiskit_aer import AerSimulator
+from qiskit_aer import AerSimulator
 import numpy as np
 import numpy.linalg as ls
 from collections.abc import Iterable
@@ -12,6 +13,7 @@ from scipy.linalg import expm
 from .pennylane_decompose import driver_component as driver_component_pennylane
 from .qiskit_decompose import driver_component as driver_component_qiskit
 from ...models import CircuitOption
+from qiskit_ibm_runtime import SamplerV2 as Sampler
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 
 def plus_minus_gate_sequence_to_unitary(s):
@@ -85,6 +87,7 @@ class PennylaneCircuit:
                 qml.Hadamard(i)
             for layer in range(num_layers):
                 
+                
                 if use_Ho_gate_list == True:
                     for i_list, theta in Ho_gate_list:
                         for i in range(len(i_list) - 1):
@@ -94,12 +97,35 @@ class PennylaneCircuit:
                             qml.CNOT(wires=[i_list[i], i_list[i + 1]])
                 elif use_Ho_gate_list == False:
                     Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     for index, Ho_vi in enumerate(Ho_vector):
                         Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
                     for index, Ho_mi in enumerate(Ho_matrix):
                         Ho += Ho_mi
 
+
                 # 惩罚项 Hamiltonian penalty
+                if use_decompose:
+                    for penalty_mi in constraints:
+                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
+                        for i in range(num_qubits):
+                            qml.RZ(coeff*penalty_mi[i]*Ho_params[layer], i)
+                        for i in range(num_qubits-1):
+                            for j in range(i+1, num_qubits):
+                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
+                                    qml.CNOT(wires=[i, j])
+                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
+                                    qml.RZ(coeff*Ho_params[layer], j)
+                                    qml.CNOT(wires=[i, j])
+                else:
+                    for penalty_mi in constraints:
+                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                        Ho += pnt_lbd * H_pnt @ H_pnt
+                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                 if use_decompose:
                     for penalty_mi in constraints:
                         coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
@@ -151,6 +177,7 @@ class PennylaneCircuit:
                             qml.CNOT(wires=[i_list[i], i_list[i + 1]])
                 elif use_Ho_gate_list == False:
                     Ho = np.zeros((2**num_qubits, 2**num_qubits))
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     for index, Ho_vi in enumerate(Ho_vector):
                         Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
                     for index, Ho_mi in enumerate(Ho_matrix):
@@ -168,7 +195,28 @@ class PennylaneCircuit:
                                     qml.RZ(coeff*Ho_params[layer], j)
                                     qml.CNOT(wires=[i, j])
                 else:
+                if use_decompose:
+                    for penalty_mi in constraints_for_others:
+                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
+                        for i in range(num_qubits):
+                            qml.RZ(coeff*Ho_params[layer], i)
+                        for i in range(num_qubits-1):
+                            for j in range(i+1, num_qubits):
+                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
+                                    qml.CNOT(wires=[i, j])
+                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
+                                    qml.RZ(coeff*Ho_params[layer], j)
+                                    qml.CNOT(wires=[i, j])
+                else:
                 # constraints_for_others 惩罚项
+                    for penalty_mi in constraints_for_others:
+                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+                        Ho += pnt_lbd * H_pnt @ H_pnt
+                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
                     for penalty_mi in constraints_for_others:
                         H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
                         for index, penalty_vi in enumerate(penalty_mi[:-1]):
@@ -346,15 +394,20 @@ class QiskitCircuit:
             constraints = self.circuit_option.constraints
             for i in range(num_qubits):
                 qc.h(i)
+                qc.h(i)
             for layer in range(num_layers):
                 if use_Ho_gate_list == True:
                     for i_list, theta in Ho_gate_list:
                         for i in range(len(i_list) - 1):
                             qc.cx(i_list[i], i_list[i + 1])
                         qc.rz(theta, i_list[-1])
+                            qc.cx(i_list[i], i_list[i + 1])
+                        qc.rz(theta, i_list[-1])
                         for i in range(len(i_list) - 2, -1, -1):
                             qc.cx(i_list[i], i_list[i + 1])
+                            qc.cx(i_list[i], i_list[i + 1])
                 elif use_Ho_gate_list == False:
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     for index, Ho_vi in enumerate(Ho_vector):
                         Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
@@ -401,7 +454,9 @@ class QiskitCircuit:
             others_qubit_set = self.others_qubit_set
             for i in set(np.nonzero(self.circuit_option.feasiable_state)[0]).intersection(cyclic_qubit_set):
                 qc.x(i)
+                qc.x(i)
             for i in others_qubit_set:
+                qc.h(i)                 
                 qc.h(i)                 
             for layer in range(num_layers):
                 
@@ -410,9 +465,13 @@ class QiskitCircuit:
                         for i in range(len(i_list) - 1):
                             qc.cx(i_list[i], i_list[i + 1])
                         qc.rz(theta, i_list[-1])
+                            qc.cx(i_list[i], i_list[i + 1])
+                        qc.rz(theta, i_list[-1])
                         for i in range(len(i_list) - 2, -1, -1):
                             qc.cx(i_list[i], i_list[i + 1])
+                            qc.cx(i_list[i], i_list[i + 1])
                 elif use_Ho_gate_list == False:
+                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     Ho = np.zeros((2**num_qubits, 2**num_qubits))
                     for index, Ho_vi in enumerate(Ho_vector):
                         Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
@@ -490,6 +549,7 @@ class QiskitCircuit:
             Hd_bits_list = self.circuit_option.Hd_bits_list
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qc.x(i)
+                qc.x(i)
             for layer in range(num_layers):
                 if use_Ho_gate_list == True:
                     for i_list, theta in Ho_gate_list:
@@ -497,6 +557,7 @@ class QiskitCircuit:
                             qc.cx(i_list[i], i_list[i + 1])
                         qc.rz(theta * Ho_params[layer], i_list[-1])
                         for i in range(len(i_list) - 2, -1, -1):
+                            qc.cx(i_list[i], i_list[i + 1])
                             qc.cx(i_list[i], i_list[i + 1])
                 elif use_Ho_gate_list == False:
                     #$ 目标函数
@@ -509,6 +570,7 @@ class QiskitCircuit:
                 # 通过对易哈密顿量惩罚约束
                 for bit_strings in range(len(Hd_bits_list)):
                     hd_bits = Hd_bits_list[bit_strings]
+                    nonzero_indices = np.nonzero(hd_bits)[0].tolist()
                     nonzero_indices = np.nonzero(hd_bits)[0].tolist()
                     nonzerobits = hd_bits[nonzero_indices]
                     hdi_string = [0 if x == -1 else 1 for x in hd_bits if x != 0]
