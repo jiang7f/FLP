@@ -103,6 +103,20 @@ class ConstrainedBinaryOptimization(Model):
 
             penalty_lambda (float, optional): the penalty parameter for the algorithm. Defaults to None.
         """
+        """
+        Set the optimization method for the algorithm.
+
+        Args:
+            type (str, optional): the optimization method for the algorithm. Defaults to 'commute'.
+
+                - 'commute': use the commute hamiltonian to optimize the problem.
+
+                - 'cyclic': use the cyclic hamiltonian to optimize the problem.
+
+                - 'penalty': use the penalty hamiltonian to optimize the problem.
+
+            penalty_lambda (float, optional): the penalty parameter for the algorithm. Defaults to None.
+        """
         self.algorithm_optimization_method = type
         self.penalty_lambda = penalty_lambda
 

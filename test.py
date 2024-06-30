@@ -17,5 +17,6 @@ flp.optimize(params_optimization_method='COBYLA',
              debug=False,
              backend='AerSimulator',   #'FakeQuebec' # 'AerSimulator'
              pass_manager='topo') #'topo'
+
 print(flp.find_state_probability([0, 1, 0, 1, 0, 1, 0, 0, 0, 0]))
 print(flp.find_state_probability([1, 1, 0, 1, 1, 0, 1, 0, 0, 1]))
