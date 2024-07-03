@@ -40,14 +40,11 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
         # 注意每一维度变量个数不同
         self.Y = [[self.add_binary_variable('y_'+str(j) + '_' + str(k)) for k in range(len(self.list_element_belongs[j]) - 1)] for j in range(len(self.list_element_belongs))]
 
-        self.objective_penalty = self.objective_func('penalty')
-        self.objective_commute = self.objective_func('commute')
+        self.objective_penalty = self.get_objective_func('penalty')
+        self.objective_commute = self.get_objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
         #* 直接加目标函数表达式
-        self._add_linear_objective(np.concatenate((self.cost_dir * np.array([1] * self.num_sets), np.array([0] * (self.num_variables - self.num_sets)))))
-        #* 约束放到 self.constraints 里
-        for cstrt in self.linear_constraints:
-            self._add_linear_constraint(cstrt)
+        self.add_linear_objective(np.concatenate((self.cost_dir * np.array([1] * self.num_sets), np.array([0] * (self.num_variables - self.num_sets)))))
         pass
     @property
     def linear_constraints(self):
@@ -73,7 +70,7 @@ class SetCoverProblem(ConstrainedBinaryOptimization):
             var.set_value(1)
         return [x.x for x in self.variables]
 
-    def objective_func(self, algorithm_optimization_method):
+    def get_objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             """ 
             Args:

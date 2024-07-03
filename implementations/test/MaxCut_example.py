@@ -6,7 +6,6 @@ mcp.optimize(params_optimization_method='COBYLA',
              max_iter=300,
              num_layers=10, 
              need_draw=True, 
-             use_Ho_gate_list=False, 
              circuit_type='qiskit', 
              debug=False)
 

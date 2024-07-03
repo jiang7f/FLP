@@ -19,10 +19,6 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
 
         self.nonlinear_objective_matrix = [self.generate_Hp]
         pass
-    @property
-    def Ho_gate_list(self):
-        gate_list = [[[pair[0], pair[1]], 1]for pair in self.pairs_connected]
-        return gate_list
 
     @property
     def generate_Hp(self):
@@ -38,11 +34,6 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
             j = pair[1]
             Hp += 1/2*(add_in_target(num_qubits, i, gate_z) @ add_in_target(num_qubits, j, gate_z) + np.eye(2**num_qubits))
         return Hp
-    
-    @property
-    def linear_constraints(self):
-        matrix = []
-        return matrix
     
     # def fast_solve_driver_bitstr(self):
     

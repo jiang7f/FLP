@@ -7,12 +7,14 @@ from ...utils.quantum_lib import *
 from qiskit_aer import AerSimulator
 import numpy as np
 import numpy.linalg as ls
+from typing import List, Tuple
 from collections.abc import Iterable
 from scipy.linalg import expm
 from .pennylane_decompose import driver_component as driver_component_pennylane
 from .qiskit_decompose import driver_component as driver_component_qiskit
 from ...models import CircuitOption
 from qiskit_ibm_runtime import SamplerV2 as Sampler
+from time import perf_counter
 
 def plus_minus_gate_sequence_to_unitary(s):
     # 把非0元素映射成01
@@ -31,8 +33,6 @@ def plus_minus_gate_sequence_to_unitary(s):
 class PennylaneCircuit:
     def __init__(self, circuit_option: CircuitOption):
         self.circuit_option = circuit_option
-        assert circuit_option.optimization_direction in ['min', 'max']
-        self.Ho_dir =  1 if circuit_option.optimization_direction == 'max' else -1
         if circuit_option.algorithm_optimization_method == 'cyclic':
             self.cyclic_qubit_set = {item for sublist in self.circuit_option.constraints_for_cyclic for item in np.nonzero(sublist[:-1])[0]}
             self.others_qubit_set = set(range(circuit_option.num_qubits)) - self.cyclic_qubit_set
@@ -49,10 +49,7 @@ class PennylaneCircuit:
     # 先给出不同电路的函数，变量初始化在此之后
     def create_circuit(self):
         use_decompose = self.circuit_option.use_decompose
-        use_Ho_gate_list = self.circuit_option.use_Ho_gate_list
-        Ho_gate_list = self.circuit_option.Ho_gate_list
-        Ho_vector = self.circuit_option.linear_objective_vector
-        Ho_matrix = self.circuit_option.nonlinear_objective_matrix
+        objective_func_term_list = self.circuit_option.objective_func_term_list
         self.inference_circuit = None
         num_qubits = self.num_qubits
         num_layers = self.num_layers
@@ -71,56 +68,69 @@ class PennylaneCircuit:
                 j = (i + 1) % n
                 Hd += (add_in_target(n, i, gate_x) @ add_in_target(n, j, gate_x) + add_in_target(n, i, gate_y) @ add_in_target(n, j, gate_y))
             return -Hd 
-        
+
+        def Ho_decompose(objective_func_term_list: List[List[Tuple[List[int], float]]], param: Parameter):
+            # 一次项
+            for [var_idx], theta in objective_func_term_list[0]:
+                qml.RZ(-theta * param, var_idx)
+            # 二次项
+            for [var_idx_1, var_idx_2], theta in objective_func_term_list[1]:
+                qml.RZ(-theta * param / 2, var_idx_1)
+                qml.RZ(-theta * param / 2, var_idx_2)
+                qml.CNOT(var_idx_1, var_idx_2)
+                qml.RZ(theta / 2 * param, var_idx_2)
+                qml.CNOT(var_idx_1, var_idx_2)
+
+        def penalty_decompose(penalty_mi:List, param:Parameter): 
+            coeff = np.sum(penalty_mi[:-1]) / 2 - penalty_mi[-1]
+            for i in range(num_qubits):
+                qml.RZ(-2 * coeff * penalty_mi[i] * param, i)
+            for i in range(num_qubits - 1):
+                for j in range(i + 1, num_qubits):
+                    if penalty_mi[i] != 0 and penalty_mi[j] != 0:
+                        qml.CNOT(wires=[i, j])
+                        coeff = penalty_mi[i] * penalty_mi[j]
+                        qml.RZ(coeff * param, j)
+                        qml.CNOT(wires=[i, j])
+
+        def Ho_unitary(objective_func_term_list: List[List[Tuple[List[int], float]]]):
+            Ho = np.zeros((2**num_qubits, 2**num_qubits))
+            for [var_idx], theta in objective_func_term_list[0]:
+                Ho += theta * add_in_target(num_qubits, var_idx, (gate_I - gate_z) / 2)
+            for [var_idx_1, var_idx_2], theta in objective_func_term_list[1]:
+                Ho += theta * add_in_target(num_qubits, var_idx_1, (gate_I - gate_z) / 2) @ add_in_target(num_qubits, var_idx_2, (gate_I - gate_z) / 2)
+            return Ho
+
+        def penalty_unitary(penalty_mi: List):
+            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+            for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+            return H_pnt @ H_pnt
+
         @qml.qnode(dev)
         def circuit_penalty(params):
             Ho_params = params[:num_layers]
             Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
             pnt_lbd = self.circuit_option.penalty_lambda
-            constraints = self.circuit_option.constraints
+            constraints = self.circuit_option.linear_constraints
             for i in range(num_qubits):
-                # if self.op_dir == 'min':
-                #     qml.PauliX(i)
                 qml.Hadamard(i)
             for layer in range(num_layers):
-                
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                        qml.RZ(theta, wires=i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                elif use_Ho_gate_list == False:
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-
-                # 惩罚项 Hamiltonian penalty
-                if use_decompose:
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(objective_func_term_list, Ho_params[layer])
+                    # 惩罚项 Hamiltonian penalty
                     for penalty_mi in constraints:
-                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
-                        for i in range(num_qubits):
-                            qml.RZ(coeff*penalty_mi[i]*Ho_params[layer], i)
-                        for i in range(num_qubits-1):
-                            for j in range(i+1, num_qubits):
-                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
-                                    qml.CNOT(wires=[i, j])
-                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
-                                    qml.RZ(coeff*Ho_params[layer], j)
-                                    qml.CNOT(wires=[i, j])
-                else:
+                        penalty_decompose(penalty_mi, Ho_params[layer])
+                elif use_decompose == False:
+                    Ho = Ho_unitary(objective_func_term_list)
+                    # 惩罚项 Hamiltonian penalty
                     for penalty_mi in constraints:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
+                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
                     # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * Ho), wires=range(num_qubits))
                 # Rx 驱动哈密顿量
                 for i in range(num_qubits):
                     qml.RX(Hd_params[layer],i)
@@ -142,46 +152,41 @@ class PennylaneCircuit:
             for i in others_qubit_set:
                 qml.Hadamard(i)                    
             for layer in range(num_layers):
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                        qml.RZ(theta, wires=i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                elif use_Ho_gate_list == False:
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                if use_decompose:
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(objective_func_term_list, Ho_params[layer])
+                    # constraints_for_others 惩罚项
                     for penalty_mi in constraints_for_others:
-                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
-                        for i in range(num_qubits):
-                            qml.RZ(coeff*Ho_params[layer], i)
-                        for i in range(num_qubits-1):
-                            for j in range(i+1, num_qubits):
-                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
-                                    qml.CNOT(wires=[i, j])
-                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
-                                    qml.RZ(coeff*Ho_params[layer], j)
-                                    qml.CNOT(wires=[i, j])
-                else:
-                # constraints_for_others 惩罚项
+                        penalty_decompose(penalty_mi, Ho_params[layer])
+                    # constraints_for_cyclic --> 驱动哈密顿量
+                    for cyclic_mi in constraints_for_cyclic:
+                        nzlist = np.nonzero(cyclic_mi[:-1])[0]
+                        for i in range(len(nzlist)):
+                            j = (i + 1) % len(nzlist)
+                            ## gate for X_iX_j
+                            qml.Hadamard(nzlist[j])
+                            qml.CNOT(wires=[nzlist[i], nzlist[j]])
+                            qml.RZ(Hd_params[layer], nzlist[j])
+                            qml.CNOT(wires=[nzlist[i], nzlist[j]])
+                            qml.Hadamard(nzlist[j])
+                            ## gate for Y_iY_j
+                            qml.U3(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[j])
+                            qml.CNOT(wires=[nzlist[i], nzlist[j]])
+                            qml.RZ(Hd_params[layer], nzlist[j])
+                            qml.CNOT(wires=[nzlist[i], nzlist[j]])
+                            qml.U3(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[j])
+                elif use_decompose == False:
+                    Ho = Ho_unitary(objective_func_term_list)
+                    # constraints_for_others 惩罚项
                     for penalty_mi in constraints_for_others:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
+                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
                     # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
-                # constraints_for_cyclic --> 驱动哈密顿量
-                for cyclic_mi in constraints_for_cyclic:
-                    nzlist = np.nonzero(cyclic_mi[:-1])[0]
-                    cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
-                    qml.QubitUnitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), wires=nzlist)
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * Ho), wires=range(num_qubits))
+                    # constraints_for_cyclic --> 驱动哈密顿量
+                    for cyclic_mi in constraints_for_cyclic:
+                        nzlist = np.nonzero(cyclic_mi[:-1])[0]
+                        cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
+                        qml.QubitUnitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), wires=nzlist)
                 for i in others_qubit_set:
                     qml.RX(Hd_params[layer],i)
             return qml.probs(wires=range(num_qubits))
@@ -195,21 +200,13 @@ class PennylaneCircuit:
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qml.PauliX(i)
             for layer in range(num_layers):
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                        qml.RZ(theta, wires=i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qml.CNOT(wires=[i_list[i], i_list[i + 1]])
-                elif use_Ho_gate_list == False:
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(objective_func_term_list, Ho_params[layer])
+                elif use_decompose == False:
                     #$ 目标函数
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), wires=range(num_qubits))
+                    Ho = Ho_unitary(objective_func_term_list, Ho_params[layer])
+                    qml.QubitUnitary(expm(-1j * Ho_params[layer] * Ho), wires=range(num_qubits))
                 # 惩罚约束
                 for bit_strings in range(len(Hd_bits_list)):
                     hd_bits = Hd_bits_list[bit_strings]
@@ -247,15 +244,14 @@ class PennylaneCircuit:
         }
         self.inference_circuit = circuit_map.get(algorithm_optimization_method)
 
-    def get_costfunc(self):
-        def costfunc(params):
+    def get_circuit_cost_function(self):
+        def circuit_cost_function(params):
             collapse_state, probs = self.inference(params)
             costs = 0
             for value, prob in zip(collapse_state, probs):
-                costs += self.circuit_option.objective(value) * prob
+                costs += self.circuit_option.objective_func(value) * prob
             return costs
-
-        return costfunc
+        return circuit_cost_function
     
     def draw_circuit(self) -> None:
         from pennylane.drawer import draw
@@ -266,13 +262,9 @@ class PennylaneCircuit:
             print(circuit_drawer(np.zeros(self.num_layers * 2)))
 
 
-
-
 class QiskitCircuit:
     def __init__(self, circuit_option: CircuitOption):
         self.circuit_option = circuit_option
-        assert circuit_option.optimization_direction in ['min', 'max']
-        self.Ho_dir =  1 if circuit_option.optimization_direction == 'max' else -1
         if circuit_option.algorithm_optimization_method == 'cyclic':
             self.cyclic_qubit_set = {item for sublist in self.circuit_option.constraints_for_cyclic for item in np.nonzero(sublist[:-1])[0]}
             self.others_qubit_set = set(range(circuit_option.num_qubits)) - self.cyclic_qubit_set
@@ -281,25 +273,23 @@ class QiskitCircuit:
 
         #+ will to delete
         print(circuit_option.backend)
-        print(circuit_option.pass_manager)
         
         if circuit_option.backend == 'FakeQuebec':
             self.backend = FakeQuebec() # 新版 真机
+            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'FakeAlmadenV2':  
             self.backend = FakeAlmadenV2() # 旧版 真机
+            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'AerSimulator':
             self.backend = AerSimulator()    # 仿真
-
-        if circuit_option.pass_manager == 'topo':
-            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
-        elif circuit_option.pass_manager == 'basic_gate':
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])
-            
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
     def inference(self, params, shots=1024):
+        if self.circuit_option.debug == True:
+            start = perf_counter()
         inference_circuit = self.inference_circuit # 已使用pass_manager编译过的理论电路 (只缺参数)
         fianl_qc = inference_circuit.assign_parameters(params)
-        if self.circuit_option.debug:
+        if self.circuit_option.debug == True:
             print("final_qc.depth()", fianl_qc.depth())
             print("final_qc.width()", fianl_qc.width())
             print("final_qc.two_qubit_gate()", fianl_qc.num_nonlocal_gates())
@@ -312,14 +302,14 @@ class QiskitCircuit:
         collapse_state = [[int(char) for char in state] for state in counts.keys()]
         total_count = sum(counts.values())
         probs = [count / total_count for count in counts.values()]
+        if self.circuit_option.debug == True:
+            end = perf_counter()
+            print(end - start)
         return collapse_state, probs
     
     def create_circuit(self) -> None:
         use_decompose = self.circuit_option.use_decompose
-        use_Ho_gate_list = self.circuit_option.use_Ho_gate_list
-        Ho_gate_list = self.circuit_option.Ho_gate_list
-        Ho_vector = self.circuit_option.linear_objective_vector
-        Ho_matrix = self.circuit_option.nonlinear_objective_matrix
+        objective_func_term_list = self.circuit_option.objective_func_term_list
         self.inference_circuit = None
         num_qubits = self.num_qubits
         num_layers = self.num_layers
@@ -330,6 +320,7 @@ class QiskitCircuit:
             H = np.kron(H, gate)
             H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
             return H
+
         def gnrt_cyclic_Hd(n):
             Hd = np.zeros((2**n, 2**n)).astype(np.complex128)
             for i in range(n):
@@ -337,61 +328,84 @@ class QiskitCircuit:
                 Hd += (add_in_target(n, i, gate_x) @ add_in_target(n, j, gate_x) + add_in_target(n, i, gate_y) @ add_in_target(n, j, gate_y))
             return -Hd
 
-        def circuit_penalty(params):
+        def Ho_decompose(qc:QuantumCircuit, objective_func_term_list: List[List[Tuple[List[int], float]]], param):
+            # 一次项
+            for [var_idx], theta in objective_func_term_list[0]:
+                qc.rz(-theta * param, var_idx)
+            # 二次项
+            for [var_idx_1, var_idx_2], theta in objective_func_term_list[1]:
+                qc.rz(-theta * param/ 2, var_idx_1)
+                qc.rz(-theta * param/ 2, var_idx_2)
+                qc.cx(var_idx_1, var_idx_2)
+                qc.rz(theta / 2 * param, var_idx_2)
+                qc.cx(var_idx_1, var_idx_2)
+
+        def penalty_decompose(qc:QuantumCircuit, penalty_mi:List, param:Parameter):
+            coeff = np.sum(penalty_mi[:-1]) / 2 - penalty_mi[-1]
+            for i in range(num_qubits):
+                qc.rz(-2 * coeff * penalty_mi[i] * param, i)
+            for i in range(num_qubits - 1):
+                for j in range(i + 1, num_qubits):
+                    if penalty_mi[i] != 0 and penalty_mi[j] != 0:
+                        qc.cx(i, j)
+                        coeff = penalty_mi[i] * penalty_mi[j]
+                        qc.rz(coeff * param, j)
+                        qc.cx(i, j)
+
+        def Ho_unitary(objective_func_term_list: List[List[Tuple[List[int], float]]]):
+            Ho = np.zeros((2**num_qubits, 2**num_qubits))
+            for [var_idx], theta in objective_func_term_list[0]:
+                Ho += theta * add_in_target(num_qubits, var_idx, (gate_I - gate_z) / 2)
+            for [var_idx_1, var_idx_2], theta in objective_func_term_list[1]:
+                Ho += theta * add_in_target(num_qubits, var_idx_1, (gate_I - gate_z) / 2) @ add_in_target(num_qubits, var_idx_2, (gate_I - gate_z) / 2)
+            return Ho
+
+        def penalty_unitary(penalty_mi: List):
+            H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
+            for index, penalty_vi in enumerate(penalty_mi[:-1]):
+                H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
+            H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
+            return H_pnt @ H_pnt
+
+        def circuit_penalty():
             qc = QuantumCircuit(num_qubits, num_qubits)
-            Ho_params = params[:num_layers]
-            Hd_params = params[num_layers:]
+            Ho_params = [Parameter(f'Ho_params[{i}]') for i in range(num_layers)]
+            Hd_params = [Parameter(f'Hd_params[{i}]') for i in range(num_layers)]
             assert len(Hd_params) == num_layers
             pnt_lbd = self.circuit_option.penalty_lambda
-            constraints = self.circuit_option.constraints
+            linear_constraints = self.circuit_option.linear_constraints
             for i in range(num_qubits):
                 qc.h(i)
             for layer in range(num_layers):
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                        qc.rz(theta, i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                elif use_Ho_gate_list == False:
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                # 惩罚项 Hamiltonian penalty
-                if use_decompose:
-                    for penalty_mi in constraints:
-                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
-                        for i in range(num_qubits):
-                            qc.rz(-coeff*penalty_mi[i]*Ho_params[layer], i)
-                        for i in range(num_qubits-1):
-                            for j in range(i+1, num_qubits):
-                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
-                                    qc.cx(i, j)
-                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
-                                    qc.rz(coeff*Ho_params[layer], j)
-                                    qc.cx(i, j)
-                else:
-                    for penalty_mi in constraints:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(qc, objective_func_term_list, Ho_params[layer])
+                    # 惩罚项 Hamiltonian penalty
+                    for penalty_mi in linear_constraints:
+                        penalty_decompose(qc, penalty_mi, Ho_params[layer])
+                elif use_decompose == False:
+                    Ho = Ho_unitary(objective_func_term_list)
+                    # 惩罚项 Hamiltonian penalty
+                    for penalty_mi in linear_constraints:
+                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
                     # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qc.unitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), range(num_qubits)[::-1])
+                    qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
                 # Rx 驱动哈密顿量
                 for i in range(num_qubits):
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            return qc
+            if self.circuit_option.debug == True:
+                start = perf_counter()
+            transpiled_qc = self.pass_manager.run(qc)
+            if self.circuit_option.debug == True:
+                end = perf_counter()
+                print(end - start)
+            return transpiled_qc
 
-        def circuit_cyclic(params):
+        def circuit_cyclic():
             qc = QuantumCircuit(num_qubits + 2, num_qubits)
-            Ho_params = params[:num_layers]
-            Hd_params = params[num_layers:]
+            Ho_params = [Parameter(f'Ho_params[{i}]') for i in range(num_layers)]
+            Hd_params = [Parameter(f'Hd_params[{i}]') for i in range(num_layers)]
             assert len(Hd_params) == num_layers
             pnt_lbd = self.circuit_option.penalty_lambda
             constraints_for_cyclic = self.circuit_option.constraints_for_cyclic
@@ -404,62 +418,42 @@ class QiskitCircuit:
             for i in others_qubit_set:
                 qc.h(i)                 
             for layer in range(num_layers):
-                
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                        qc.rz(theta, i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                elif use_Ho_gate_list == False:
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                # constraints_for_others 惩罚项
-                if use_decompose:
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(qc, objective_func_term_list, Ho_params[layer])
+                    # constraints_for_others 惩罚项
                     for penalty_mi in constraints_for_others:
-                        coeff = (np.sum(penalty_mi)-3*penalty_mi[-1])/2
-                        for i in range(num_qubits):
-                            qc.rz(coeff*penalty_mi[i]*Ho_params[layer], i)
-                        for i in range(num_qubits-1):
-                            for j in range(i+1, num_qubits):
-                                if penalty_mi[i] != 0 and penalty_mi[j] != 0:
-                                    qc.cx(i, j)
-                                    coeff = (penalty_mi[i]* penalty_mi[j])/2
-                                    qc.rz(coeff*Ho_params[layer], j)
-                                    qc.cx(i, j)
-                else:
-                    for penalty_mi in constraints_for_others:
-                        H_pnt = np.zeros((2**num_qubits, 2**num_qubits))
-                        for index, penalty_vi in enumerate(penalty_mi[:-1]):
-                            H_pnt += penalty_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                        H_pnt -= penalty_mi[-1] * np.eye(2**num_qubits)
-                        Ho += pnt_lbd * H_pnt @ H_pnt
-                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
-                    qc.unitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), range(num_qubits)[::-1])
-                # constraints_for_cyclic --> 驱动哈密顿量
-                if use_decompose:
+                        penalty_decompose(qc, penalty_mi, Ho_params[layer])
+                    # constraints_for_cyclic --> 驱动哈密顿量
                     for cyclic_mi in constraints_for_cyclic:
                         nzlist = np.nonzero(cyclic_mi[:-1])[0]
                         for i in range(len(nzlist)):
                             j = (i + 1) % len(nzlist)
                             ## gate for X_iX_j
                             qc.h(nzlist[j])
+                            qc.h(nzlist[i])
                             qc.cx(nzlist[i], nzlist[j])
-                            qc.rz(Hd_params[layer],nzlist[j])
+                            qc.rz(2 * Hd_params[layer], nzlist[j])
                             qc.cx(nzlist[i], nzlist[j])
                             qc.h(nzlist[j])
+                            qc.h(nzlist[i])
                             ## gate for Y_iY_j
-                            qc.u(np.pi/2, np.pi/2, np.pi/2,nzlist[j])
+                            qc.u(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[j])
+                            qc.u(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[i])
                             qc.cx(nzlist[i], nzlist[j])
-                            qc.rz(Hd_params[layer],nzlist[j])
+                            qc.rz(2 * Hd_params[layer], nzlist[j])
                             qc.cx(nzlist[i], nzlist[j])
-                            qc.u(np.pi/2, np.pi/2, np.pi/2,nzlist[j])
+                            qc.u(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[j])
+                            qc.u(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[i])
 
-                else:
+                elif use_decompose == False:
+                    Ho = Ho_unitary(objective_func_term_list)
+                    # constraints_for_others 惩罚项
+                    for penalty_mi in constraints_for_others:
+                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
+                    # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
+                    qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
+                    # constraints_for_cyclic --> 驱动哈密顿量
                     for cyclic_mi in constraints_for_cyclic:
                         nzlist = np.nonzero(cyclic_mi[:-1])[0]
                         cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
@@ -467,7 +461,13 @@ class QiskitCircuit:
                 for i in others_qubit_set:
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            return qc
+            if self.circuit_option.debug == True:
+                start = perf_counter()
+            transpiled_qc = self.pass_manager.run(qc)
+            if self.circuit_option.debug == True:
+                end = perf_counter()
+                print(end - start)
+            return transpiled_qc
         
         def circuit_commute():
             print("'circuit_commute' function ran once") # wait be delete
@@ -480,52 +480,45 @@ class QiskitCircuit:
                 ancilla = list(range(num_qubits, 2 * num_qubits))
             else:
                 raise ValueError("mcx_mode should be 'constant' or 'linear'")
-            # Ho_params = params[:num_layers]
-            # Hd_params = params[num_layers:]
 
             Ho_params = [Parameter(f'Ho_params[{i}]') for i in range(num_layers)]
             Hd_params = [Parameter(f'Hd_params[{i}]') for i in range(num_layers)]
-            
-            # assert len(Hd_params) == num_layers
             Hd_bits_list = self.circuit_option.Hd_bits_list
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qc.x(i)
             for layer in range(num_layers):
-                if use_Ho_gate_list == True:
-                    for i_list, theta in Ho_gate_list:
-                        for i in range(len(i_list) - 1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                        qc.rz(theta * Ho_params[layer], i_list[-1])
-                        for i in range(len(i_list) - 2, -1, -1):
-                            qc.cx(i_list[i], i_list[i + 1])
-                elif use_Ho_gate_list == False:
-                    #$ 目标函数
-                    Ho = np.zeros((2**num_qubits, 2**num_qubits))
-                    for index, Ho_vi in enumerate(Ho_vector):
-                        Ho += Ho_vi * add_in_target(num_qubits, index, (gate_I - gate_z)/2)
-                    for index, Ho_mi in enumerate(Ho_matrix):
-                        Ho += Ho_mi
-                    qc.unitary(expm(-1j * Ho_params[layer] * self.Ho_dir * Ho), range(num_qubits)[::-1])
-                # 通过对易哈密顿量惩罚约束
+                #$ Ho
+                if use_decompose == True:
+                    # 目标函数
+                    Ho_decompose(qc, objective_func_term_list, Ho_params[layer])
+                elif use_decompose == False:
+                    Ho = Ho_unitary(objective_func_term_list)
+                    qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
+                # Hd 通过对易哈密顿量惩罚约束
                 for bit_strings in range(len(Hd_bits_list)):
                     hd_bits = Hd_bits_list[bit_strings]
                     nonzero_indices = np.nonzero(hd_bits)[0].tolist()
                     nonzerobits = hd_bits[nonzero_indices]
                     hdi_string = [0 if x == -1 else 1 for x in hd_bits if x != 0]
-                    if use_decompose:
+                    if use_decompose == True:
                         driver_component_qiskit(qc, nonzero_indices, ancilla, hdi_string, Hd_params[layer], mcx_mode)
-                    else:
+                    elif use_decompose == False:
                         qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
+                    qc.measure(range(num_qubits), range(num_qubits)[::-1])
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            return self.pass_manager.run(qc)
+            if self.circuit_option.debug == True:
+                start = perf_counter()
+            transpiled_qc = self.pass_manager.run(qc)
+            if self.circuit_option.debug == True:
+                end = perf_counter()
+                print(end - start)
+            return transpiled_qc
         
-        def circuit_HEA(params):
+        def circuit_HEA():
             qc = QuantumCircuit(num_qubits + 2, num_qubits)
-            params = np.array(params).reshape((num_layers, num_qubits, 3))
-            r1_params = params[:, :, 0]
-            r2_params = params[:, :, 1]
-            r3_params = params[:, :, 2]
-            assert len(r3_params) == num_layers
+            r1_params = [[Parameter(f'r1_params[{i}_{j}]') for j in range(num_qubits)] for i in range(num_layers)]
+            r2_params = [[Parameter(f'r2_params[{i}_{j}]') for j in range(num_qubits)] for i in range(num_layers)]
+            r3_params = [[Parameter(f'r3_params[{i}_{j}]') for j in range(num_qubits)] for i in range(num_layers)]
             for layer in range(num_layers):
                 for i in range(num_qubits):
                     qc.rz(r1_params[layer][i], i)
@@ -534,7 +527,13 @@ class QiskitCircuit:
                 for i in range(num_qubits):
                     qc.cx(i, (i + 1) % num_qubits)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            return qc
+            if self.circuit_option.debug == True:
+                start = perf_counter()
+            transpiled_qc = self.pass_manager.run(qc)
+            if self.circuit_option.debug == True:
+                end = perf_counter()
+                print(end - start)
+            return transpiled_qc
     
         circuit_map = {
             'penalty': circuit_penalty,
@@ -544,15 +543,14 @@ class QiskitCircuit:
         }
         self.inference_circuit = circuit_map.get(algorithm_optimization_method)()
 
-    def get_costfunc(self):
-        def costfunc(params):
+    def get_circuit_cost_function(self):
+        def circuit_cost_function(params):
             collapse_state, probs = self.inference(params)
             costs = 0
             for value, prob in zip(collapse_state, probs):
-                costs += self.circuit_option.objective(value) * prob
+                costs += self.circuit_option.objective_func(value) * prob
             return costs
-
-        return costfunc
+        return circuit_cost_function
     
     def draw_circuit(self) -> None:
         qc = self.inference_circuit

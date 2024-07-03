@@ -41,15 +41,12 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         # x_i_k = 1 如果顶点 i 被分配颜色 k, 否则为0
         self.X = self.add_binary_variables('x', [self.num_graphs, self.num_colors])
         self.Y = self.add_binary_variables('y', [self.num_colors, self.num_adjacent])
-        self.objective_penalty = self.objective_func('penalty')
-        self.objective_cyclic = self.objective_func('cyclic')
-        self.objective_commute = self.objective_func('commute')
+        self.objective_penalty = self.get_objective_func('penalty')
+        self.objective_cyclic = self.get_objective_func('cyclic')
+        self.objective_commute = self.get_objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
         # 加目标函数
         self.nonlinear_objective_matrix = [self.generate_Hp]
-        # 约束放到 self.constraints 里
-        for cstrt in self.linear_constraints:
-            self._add_linear_constraint(cstrt)
         pass
 
     @property
@@ -104,7 +101,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             self.Y[b][k].set_value(1)
         return [var.x for var in self.variables]
 
-    def objective_func(self, algorithm_optimization_method):
+    def get_objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             """ the objective function of the graph coloring problem
 

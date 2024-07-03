@@ -40,39 +40,32 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         self.Y = self.add_binary_variables('y', [m, n])
         self.Z = self.add_binary_variables('z', [m, n])
         #* 添加支持优化方法
-        self.objective_penalty = self.objective_func('penalty')
-        self.objective_cyclic = self.objective_func('cyclic')
-        self.objective_commute = self.objective_func('commute')
+        self.objective_penalty = self.get_objective_func('penalty')
+        self.objective_cyclic = self.get_objective_func('cyclic')
+        self.objective_commute = self.get_objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
         #* 直接加目标函数表达式
-        self._add_linear_objective(np.multiply(list(itertools.chain(f, *c)), self.cost_dir))
-        #* 约束放到 self.constraints 里
-        for cstrt in self.linear_constraints:
-            self._add_linear_constraint(cstrt)
+        self.add_linear_objective(np.multiply(list(itertools.chain(f, *c)), self.cost_dir))
         pass
-
-    @property
-    def Ho_gate_list(self):
-        theta_list = self.linear_objective_vector
-        gate_list = [[[i], theta_list[i]] for i in range(len(theta_list))]
-        return gate_list
     
     @property
     def linear_constraints(self):
-        n = self.n
-        m = self.m
-        total_rows = n * m + m
-        total_columns = self.num_variables + 1
-        matrix = np.zeros((total_rows, total_columns))
-        for i in range(m):
-            for j in range(n):
-                matrix[n * m + i, self.var_to_idex(self.Y[i][j])] = 1
-                # y_ij + z_ij - x_j = 1
-                matrix[j * m + i, self.var_to_idex(self.Y[i][j])] = 1
-                matrix[j * m + i, self.var_to_idex(self.Z[i][j])] = 1
-                matrix[j * m + i, self.var_to_idex(self.X[j])] = -1
-            matrix[n * m + i, total_columns - 1] = 1
-        return matrix
+        if self._linear_constraints is None:
+            n = self.n
+            m = self.m
+            total_rows = n * m + m
+            total_columns = self.num_variables + 1
+            matrix = np.zeros((total_rows, total_columns))
+            for i in range(m):
+                for j in range(n):
+                    matrix[n * m + i, self.var_to_idex(self.Y[i][j])] = 1
+                    # y_ij + z_ij - x_j = 1
+                    matrix[j * m + i, self.var_to_idex(self.Y[i][j])] = 1
+                    matrix[j * m + i, self.var_to_idex(self.Z[i][j])] = 1
+                    matrix[j * m + i, self.var_to_idex(self.X[j])] = -1
+                matrix[n * m + i, total_columns - 1] = 1
+            self._linear_constraints = matrix
+        return self._linear_constraints
     
     def fast_solve_driver_bitstr(self):
         n, m  = self.n,self.m
@@ -120,7 +113,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         #         self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         return [x.x for x in self.variables]
 
-    def objective_func(self, algorithm_optimization_method):
+    def get_objective_func(self, algorithm_optimization_method):
         def objective(variables:Iterable):
             cost = 0
             for i in range(self.m):

@@ -17,7 +17,7 @@ class Expression:
         self.expr = expr
         pass
     def __add__(self,other):
-        if isinstance(other,Expression):
+        if isinstance(other, Expression):
             return self.expr + other.expr
         
         return self.expr + other
@@ -55,15 +55,27 @@ class ConstrainedBinaryOptimization(Model):
 
         Args:
             fastsolve (bool, optional): whether to use fast solve method to get the bitstring for driver hamiltonian. Defaults to False.
+        statement:
+            objective_func_term_list: 用于存储目标函数中的各次项
+            每一个元素是一个列表，表示一个次项（一次项、二次项等）
+            每个次项列表包含若干项，每项是一个包含两个元素的列表：
+            第一个元素是变量序号的列表（对应该项的变量）
+            第二个元素是该项的系数
+            例如：
+            一次项列表: [[[0], 2.5], [[1], 3.0]] 表示 2.5*x_0 + 3.0*x_1
+            二次项列表: [[[0, 1], 1.5]] 表示 1.5*x_0*x_1
+            完整结构：[[一次项列表], [二次项列表], ...]
         """
         self.fastsolve = fastsolve
         self.variables = []
-        self.constraints_for_cyclic = [] # 用于存∑=x
-        self.constraints_for_others = []
-        # self.constraints yeld by @property
-        self.linear_objective_vector = []
-        self.nonlinear_objective_matrix = []
-        self.objective = None
+        # self._constraints 预留为 linear 和 nonlinear 的并集
+        self._linear_constraints = None  # yeld by @property 是 for_cyclic 和 for_others 的并集
+        self._constraints_classify_cyclic_others  = None # cyclic 用于存∑=x
+        self.objective_func_term_list = [[], []] # 暂设目标函数最高次为2, 解释见 statement
+        self.objective_func = None
+        self.objective_penalty = None
+        self.objective_cyclic = None
+        self.objective_commute = None
         self.variables_idx = {}
         self.current_var_idx = 0
         self.variable_name_set = set()
@@ -71,17 +83,11 @@ class ConstrainedBinaryOptimization(Model):
         self.penalty_lambda = 0
         self.collapse_state = None
         self.probs = None
-        self.optimization_direction = None
         self.cost_dir = 0
-        # self.Ho_gate_list yeld by @property
-        self.objective_penalty = None
-        self.objective_cyclic = None
-        self.objective_commute = None
         pass
 
     def set_optimization_direction(self, dir):
         assert dir in ['min', 'max']
-        self.optimization_direction = dir
         self.cost_dir = 1 if dir == 'min' else -1 if dir == 'max' else None
 
     def find_state_probability(self, state):
@@ -154,6 +160,7 @@ class ConstrainedBinaryOptimization(Model):
                 return variables
         BVars = gnrt_variables(name, shape)
         return BVars
+    
     def add_binary_variable(self, name:str):
         """ Add one 0-1 variable
 
@@ -168,10 +175,52 @@ class ConstrainedBinaryOptimization(Model):
         self.variables_idx[name] = self.current_var_idx
         self.current_var_idx += 1
         return var
-    # 输入变量对象, 输出变量在问题对象变量列表中的下标, 算cost用
+    # 输入变量对象, 输出变量在问题对象变量列表中的下标, 算cost等用
     def var_to_idex(self, var: Variable):
         return self.variables_idx[var.name]
+    
+    def add_objective(self, expr_or_func):
+        # 待拓展非线性目标函数表达式解析
+        if isinstance(expr_or_func, str):
+            coefficients = np.zeros(len(self.variables) + 1)
+            for sign, term in split_expr(expr_or_func.split('==')[0]):
+                sign = 1 if sign == '+' else -1
+                if '*' in term:
+                    coefficient, variable = term.split('*')
+                    coefficients[self.variables_idx[variable]] = sign * int(coefficient)
+                else:
+                    variable = term
+                    coefficients[self.variables_idx[variable]] = sign
+            coefficients[-1] = int(expr_or_func.split('==')[1])
+            print(coefficients)
+            self.add_linear_objective(coefficients)
+        elif callable(expr_or_func):
+            self.objective_func = expr_or_func
+        else:
+            raise ValueError("Unsupported objective_func type. Expected either a string or a callable function.")
+
+    def add_linear_objective(self, coefficients: Iterable):
+        """add the objective function to the problem
+        Args:
+            coefficients (Iterable): [c_0, c_1,..., c_n-1] represents c_0*x_0 + c_1*x_1 + ... + c_n-1*x_n-1
+        """
+        for i in range(len(coefficients)):
+            self.objective_func_term_list[0].append([[i], coefficients[i]])
+            # self.objective_matrix[i][i] = coefficients
+    
+    def add_nonlinear_objective(self, term_list: Iterable, coefficient):
+        self.objective_func_term_list[1].append([term_list, coefficient])
+
+    def add_eq_constraint(self, coefficients: Iterable, variable):
+        """_summary_
+
+        Args:
+            coefficients (Iterable): _description_
+        """
+        pass
+
     def add_constraint(self, expr):
+        # 待拓展非线性约束表达式解析
         """
         Add a constraint to the optimization problem.
 
@@ -191,79 +240,51 @@ class ConstrainedBinaryOptimization(Model):
             else:
                 variable = term
                 coefficients[self.variables_idx[variable]] = sign
-        coefficients[-1]= int(expr.split('==')[1])
+        coefficients[-1] = int(expr.split('==')[1])
         print(coefficients)
-        self._add_linear_constraint(coefficients)
+        self.add_linear_constraints(coefficients)
         ## get the coefficients and the variables
 
-    def _add_linear_constraint(self, coefficients: Iterable):
-        """add one linear constraint to the problem
-
-        Args:
-            coefficients (Iterable): [a_0, a_1,..., a_n-1, b] represents a_0*x_0 + a_1*x_1 + ... + a_n-1*x_n-1 == b
-        """
-        assert len(coefficients) == 1 + len(self.variables)
-        if set(coefficients[:-1]).issubset({0, 1}):
-            assert coefficients[-1] >= 0
-            self.constraints_for_cyclic.append(coefficients)
-        else:
-            self.constraints_for_others.append(coefficients)
-    @property
-    def constraints(self):
-        cstt = np.array(self.constraints_for_cyclic + self.constraints_for_others)
-        return cstt
-    
-    def add_objective(self, expr):
-        coefficients = np.zeros(len(self.variables) + 1)
-        for sign,term in split_expr(expr.split('==')[0]):
-            sign = 1 if sign == '+' else -1
-            if '*' in term:
-                coefficient,variable = term.split('*')
-                coefficients[self.variables_idx[variable]] = sign*int(coefficient)
-            else:
-                variable = term
-                coefficients[self.variables_idx[variable]] = sign
-        coefficients[-1]= int(expr.split('==')[1])
-        print(coefficients)
-        self._add_linear_objective(coefficients)
-
-    def _add_linear_objective(self, coefficients: Iterable):
-        """add the objective function to the problem
-        Args:
-            coefficients (Iterable): [c_0, c_1,..., c_n-1] represents c_0*x_0 + c_1*x_1 + ... + c_n-1*x_n-1
-        """
-        self.linear_objective_vector = coefficients
-
-    def add_eq_constraint(self, coefficients: Iterable, variable):
-        """_summary_
-
-        Args:
-            coefficients (Iterable): _description_
-        """
-        pass
+    def add_linear_constraint(self, coefficients: Iterable):
+        self.linear_constraints.append(coefficients)
 
     @property
     def linear_constraints(self):
-        return []
+        # 子类自建linear_constraint 再分类到 for_cyclic & for_others
+        if self._linear_constraints is None:
+            return []
+        return self._linear_constraints
+    
+    @property
+    def constraints_classify_cyclic_others(self):
+        if self._constraints_classify_cyclic_others is None:
+            self._constraints_classify_cyclic_others = [[]] * 2
+            for cstrt in self.linear_constraints:
+                assert len(cstrt) == 1 + len(self.variables)
+                if set(cstrt[:-1]).issubset({0, 1}):
+                    assert cstrt[-1] >= 0
+                    self._constraints_classify_cyclic_others[0].append(cstrt)
+                else:
+                    self._constraints_classify_cyclic_others[1].append(cstrt)
+        return self._constraints_classify_cyclic_others
+        
+
     @property
     def get_driver_bitstr(self):
         if self.fastsolve:
             return self.fast_solve_driver_bitstr()
         # 如果不使用解析的解系, 高斯消元求解
-        basic_vector = find_basic_solution(self.constraints[:,:-1]) if len(self.constraints) > 0 else []
+        basic_vector = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
         return basic_vector
-    def add_objective(self,objectivefunc):
-        self.objective = objectivefunc
-    def set_objective(self, expr):
-        pass
+
     def get_feasible_solution(self):
-        ## find a feasible solution for the constraints
+        ## find a feasible solution for the linear_constraints
         for i in range(1 << len(self.variables)):
             bitstr = [int(j) for j in list(bin(i)[2:].zfill(len(self.variables)))]
-            if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.constraints]):
+            if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_Ho_gate_list=False, use_decompose=False, circuit_type='pennylane',mcx_mode='constant', debug=True, backend='FakeAlmadenV2', pass_manager='topo') -> None: 
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_decompose=False, circuit_type='pennylane', mcx_mode='constant', debug=True, backend='FakeAlmadenV2') -> None: 
 
         self.feasiable_state = self.get_feasible_solution()
         print(f'fsb_state:{self.feasiable_state}') #-
@@ -280,40 +301,36 @@ class ConstrainedBinaryOptimization(Model):
             circuit_type=circuit_type,
             num_qubits=len(self.variables),
             num_layers=num_layers,
-            objective=None,
+            objective_func=None,
             mcx_mode=mcx_mode,
             algorithm_optimization_method=self.algorithm_optimization_method,
             feasiable_state=self.feasiable_state,
-            optimization_direction=self.optimization_direction,
             use_decompose=use_decompose,
-            linear_objective_vector=self.linear_objective_vector,
-            nonlinear_objective_matrix=self.nonlinear_objective_matrix,
+            objective_func_term_list=self.objective_func_term_list,
             need_draw=need_draw,
-            use_Ho_gate_list=use_Ho_gate_list,
-            Ho_gate_list = self.Ho_gate_list,
             penalty_lambda = self.penalty_lambda,
-            constraints = self.constraints,
-            constraints_for_cyclic = self.constraints_for_cyclic,
-            constraints_for_others = self.constraints_for_others,
+            linear_constraints = self.linear_constraints,
+            constraints_for_cyclic=self.constraints_classify_cyclic_others[0],
+            constraints_for_others=self.constraints_classify_cyclic_others[1],
             Hd_bits_list = self.get_driver_bitstr,
             debug=debug,
             backend=backend,
-            pass_manager=pass_manager
         )
 
-        objective_map = {
+        objective_func_map = {
             'penalty': self.objective_penalty,
             'cyclic': self.objective_cyclic,
             'commute': self.objective_commute,
             'HEA': self.objective_penalty
         }
-        circuit_option.objective = objective_map.get(self.algorithm_optimization_method)
+        if self.algorithm_optimization_method in objective_func_map:
+            circuit_option.objective_func = objective_func_map.get(self.algorithm_optimization_method)
 
         collapse_state, probs = solve(optimizer_option, circuit_option)
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
-        cost = circuit_option.objective(max_prob_solution)
+        cost = circuit_option.objective_func(max_prob_solution)
         print(collapse_state)
         print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
         self.collapse_state=collapse_state

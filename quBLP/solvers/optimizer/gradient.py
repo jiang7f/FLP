@@ -77,4 +77,4 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
 def train_gradient(optimizer_option: OptimizerOption):
     # , requires_grad=False
     params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
-    return adam_optimizer(params, optimizer_option.cost_function, optimizer_option.max_iter, optimizer_option.learning_rate, optimizer_option.beta1, optimizer_option.beta2)
+    return adam_optimizer(params, optimizer_option.circuit_cost_function, optimizer_option.max_iter, optimizer_option.learning_rate, optimizer_option.beta1, optimizer_option.beta2)

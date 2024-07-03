@@ -16,8 +16,8 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
 
     optimizer_option.num_params = num_params
     circuit.create_circuit()
-    optimizer_option.cost_function = circuit.get_costfunc()
-    print(optimizer_option.cost_function)
+    optimizer_option.circuit_cost_function = circuit.get_circuit_cost_function()
+    print(optimizer_option.circuit_cost_function)
     if circuit_option.need_draw:
         circuit.draw_circuit()
     # 测试一组预设参数的结果
