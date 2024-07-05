@@ -17,6 +17,7 @@ from qiskit_ibm_runtime import SamplerV2 as Sampler
 from time import perf_counter
 from itertools import combinations
 from ...analysis import Feature
+from ...utils import QuickFeedbackException
 
 class QiskitCircuit:
     def __init__(self, circuit_option: CircuitOption):
@@ -69,7 +70,10 @@ class QiskitCircuit:
         if self.circuit_option.use_debug:
             end = perf_counter()
             print(end - start)
-            exit()
+            self.circuit_option.use_decompose
+            circuit_option = self.circuit_option
+            raise QuickFeedbackException(message=f"debug finished: {circuit_option.algorithm_optimization_method}, {circuit_option.backend}, use_decompose={circuit_option.use_decompose}",
+                                         data=[feature.get_depth_without_one_qubit_gate(), feature.latency_all()])
         return collapse_state, probs
     
     def create_circuit(self) -> None:

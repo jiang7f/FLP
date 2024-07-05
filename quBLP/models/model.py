@@ -4,6 +4,7 @@ import itertools
 from typing import Iterable, List, Callable,  Union
 from ..utils.linear_system import find_basic_solution
 from ..utils.parse_expr import split_expr
+from ..utils import QuickFeedbackException
 from ..solvers import solve
 from dataclasses import dataclass, field
 from .option import OptimizerOption, CircuitOption
@@ -93,8 +94,7 @@ class ConstrainedBinaryOptimization(Model):
     def find_state_probability(self, state):
         try:
             index = self.collapse_state.index(state)
-        except ValueError as e:
-            # print(f"ValueError occurred: {e}")
+        except ValueError:
             return 0
         else:
             return self.probs[index]
@@ -289,39 +289,21 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_decompose=False, circuit_type='pennylane', mcx_mode='constant', use_debug=True, backend='FakeAlmadenV2') -> None: 
+
+    def optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption) -> None: 
+        circuit_option.num_qubits = len(self.variables)
+        circuit_option.algorithm_optimization_method = self.algorithm_optimization_method
+        circuit_option.penalty_lambda = self.penalty_lambda
+        circuit_option.feasiable_state = self.get_feasible_solution()
+        circuit_option.objective_func_term_list = self.objective_func_term_list
+        circuit_option.linear_constraints = self.linear_constraints
+        circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
+        circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
+        circuit_option.Hd_bits_list  = self.get_driver_bitstr
+
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
-        self.feasiable_state = self.get_feasible_solution()
-        print(f'fsb_state: {self.feasiable_state}') #-
+        print(f'fsb_state: {circuit_option.feasiable_state}') #-
         print(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-
-        optimizer_option = OptimizerOption(
-            params_optimization_method=params_optimization_method,
-            max_iter=max_iter,
-            learning_rate=learning_rate,
-            beta1=beta1,
-            beta2=beta2,
-        )
-
-        circuit_option = CircuitOption(
-            circuit_type=circuit_type,
-            num_qubits=len(self.variables),
-            num_layers=num_layers,
-            objective_func=None,
-            mcx_mode=mcx_mode,
-            algorithm_optimization_method=self.algorithm_optimization_method,
-            feasiable_state=self.feasiable_state,
-            use_decompose=use_decompose,
-            objective_func_term_list=self.objective_func_term_list,
-            need_draw=need_draw,
-            penalty_lambda = self.penalty_lambda,
-            linear_constraints = self.linear_constraints,
-            constraints_for_cyclic=self.constraints_classify_cyclic_others[0],
-            constraints_for_others=self.constraints_classify_cyclic_others[1],
-            Hd_bits_list = self.get_driver_bitstr,
-            use_debug=use_debug,
-            backend=backend,
-        )
-
         objective_func_map = {
             'penalty': self.objective_penalty,
             'cyclic': self.objective_cyclic,
@@ -331,7 +313,10 @@ class ConstrainedBinaryOptimization(Model):
         if self.algorithm_optimization_method in objective_func_map:
             circuit_option.objective_func = objective_func_map.get(self.algorithm_optimization_method)
 
-        collapse_state, probs = solve(optimizer_option, circuit_option)
+        try:
+            collapse_state, probs = solve(optimizer_option, circuit_option)
+        except QuickFeedbackException as qfe:
+            return qfe.data
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
