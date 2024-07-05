@@ -21,7 +21,7 @@ class CircuitOption:
     use_decompose: bool
     need_draw: bool
     mcx_mode: str # 'constant' for 2 additional ancillas with linear depth, 'linear' for n -1 additional ancilla with logarithmic depth
-    debug: bool = False
+    use_debug: bool = False
     penalty_lambda: float = None
     feasiable_state: List[int] = field(default_factory=list)
     objective_func_term_list: List[List[Tuple[List[int], float]]] = field(default_factory=list)

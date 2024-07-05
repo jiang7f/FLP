@@ -1,12 +1,11 @@
 from quBLP.problemtemplate import MaxCutProblem as MCP
 mcp = MCP(4,[[0,1], [0,2], [0,3]], False)
 
-mcp.set_algorithm_optimization_method('penalty')
+mcp.set_algorithm_optimization_method('penalty', 30)
 mcp.optimize(params_optimization_method='COBYLA',
              max_iter=300,
              num_layers=10, 
-             need_draw=False, 
-             use_decompose=True,
+             need_draw=True, 
              circuit_type='qiskit', 
              use_debug=False)
 

@@ -16,24 +16,31 @@ class MaxCutProblem(ConstrainedBinaryOptimization):
 
         self.objective_penalty = self.objectivefunc()
         self.feasible_solution = self.get_feasible_solution()
-
-        self.nonlinear_objective_matrix = [self.generate_Hp]
+        self.add_mct_objective()
         pass
 
-    @property
-    def generate_Hp(self):
-        def add_in_target(num_qubits, target_qubit, gate):
-            H = np.eye(2 ** (target_qubit))
-            H = np.kron(H, gate)
-            H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
-            return H
-        num_qubits = self.num_variables
-        Hp = np.zeros((2**num_qubits, 2**num_qubits))
+    def add_mct_objective(self):
         for pair in self.pairs_connected:
             i = pair[0]
             j = pair[1]
-            Hp += 1/2*(add_in_target(num_qubits, i, gate_z) @ add_in_target(num_qubits, j, gate_z) + np.eye(2**num_qubits))
-        return Hp
+            self.add_nonlinear_objective([i], 1)
+            self.add_nonlinear_objective([j], 1)
+            self.add_nonlinear_objective([i, j], -2)
+
+    # @property
+    # def generate_Hp(self):
+    #     def add_in_target(num_qubits, target_qubit, gate):
+    #         H = np.eye(2 ** (target_qubit))
+    #         H = np.kron(H, gate)
+    #         H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
+    #         return H
+    #     num_qubits = self.num_variables
+    #     Hp = np.zeros((2**num_qubits, 2**num_qubits))
+    #     for pair in self.pairs_connected:
+    #         i = pair[0]
+    #         j = pair[1]
+    #         Hp += 1/2*(add_in_target(num_qubits, i, gate_z) @ add_in_target(num_qubits, j, gate_z) + np.eye(2**num_qubits))
+    #     return Hp
     
     # def fast_solve_driver_bitstr(self):
     

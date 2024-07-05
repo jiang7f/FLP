@@ -27,10 +27,10 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         super().__init__(fastsolve)
         #* 设定优化方向
         self.set_optimization_direction('min')
-        # 设施点个数
-        self.n = n
         # 需求点个数
         self.m = m
+        # 设施点个数
+        self.n = n
         # cij需求i到设施j的成本
         self.c = c 
         # fj设施j的建设成本
@@ -39,7 +39,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         self.X = self.add_binary_variables('x', [n])
         self.Y = self.add_binary_variables('y', [m, n])
         self.Z = self.add_binary_variables('z', [m, n])
-        #* 添加支持优化方法
+
         self.objective_penalty = self.get_objective_func('penalty')
         self.objective_cyclic = self.get_objective_func('cyclic')
         self.objective_commute = self.get_objective_func('commute')
@@ -126,7 +126,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 return self.cost_dir * cost
             for i in range(self.m):
                 for j in range(self.n):
-                    cost += self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
+                    cost += self.cost_dir * self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
             # cyclic 多包含一项非∑=x约束
             if algorithm_optimization_method == 'cyclic':
                 return self.cost_dir * cost
@@ -134,7 +134,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 t = 0
                 for j in range(self.n):
                     t += variables[self.var_to_idex(self.Y[i][j])]
-                cost += self.penalty_lambda * (t - 1)**2
+                cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
             # penalty 所有约束都惩罚施加
             if algorithm_optimization_method == 'penalty':
                 return self.cost_dir * cost

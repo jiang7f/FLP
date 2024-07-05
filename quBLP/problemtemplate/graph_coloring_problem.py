@@ -32,6 +32,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         self.set_optimization_direction('min')
         ## 图个数
         self.num_graphs = num_graphs
+        self.objective_func_term_list = [[] for _ in range(self.num_graphs)]
         ## 相邻图对
         self.pairs_adjacent = pairs_adjacent
         self.num_adjacent = len(pairs_adjacent)
@@ -40,31 +41,28 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         self.num_variables = self.num_graphs * self.num_colors + self.num_colors * self.num_adjacent
         # x_i_k = 1 如果顶点 i 被分配颜色 k, 否则为0
         self.X = self.add_binary_variables('x', [self.num_graphs, self.num_colors])
-        self.Y = self.add_binary_variables('y', [self.num_colors, self.num_adjacent])
+        self.Y = self.add_binary_variables('y', [self.num_adjacent, self.num_colors])
         self.objective_penalty = self.get_objective_func('penalty')
         self.objective_cyclic = self.get_objective_func('cyclic')
         self.objective_commute = self.get_objective_func('commute')
         self.feasible_solution = self.get_feasible_solution()
         # 加目标函数
-        self.nonlinear_objective_matrix = [self.generate_Hp]
+        self.add_gcp_objective()
         pass
 
-    @property
-    def generate_Hp(self):
-        def add_in_target(num_qubits, target_qubit, gate=np.array([[1, 0],[0, -1]])):
-            H = np.eye(2 ** (target_qubit))
-            H = np.kron(H, gate)
-            H = np.kron(H, np.eye(2 ** (num_qubits - 1 - target_qubit)))
-            return H
-        odd_even = -1 if self.num_graphs % 2 else 1
-        num_qubits = self.num_variables
-        Hp = np.zeros((2**num_qubits, 2**num_qubits))
-        for j in range(self.num_colors):
-            Ht = np.eye(2**num_qubits)
-            for i in range(self.num_graphs):
-                Ht = Ht @ add_in_target(num_qubits, self.var_to_idex(self.X[i][j]), (gate_z + gate_I)/2)
-            Hp += np.eye(2**num_qubits) - odd_even * Ht
-        return np.multiply(Hp, self.cost_dir)
+
+    def add_gcp_objective(self):
+        m = self.num_graphs
+        n = self.num_colors
+        from itertools import combinations
+        for j in range(n):
+            for k in range(1, m + 1):
+                for combo in combinations(range(m), k):
+                    theta = (-1) ** k
+                    term_list = []
+                    for index in combo:
+                        term_list.append(self.var_to_idex(self.X[index][j]))
+                    self.add_nonlinear_objective(term_list, self.cost_dir * -theta)
     
     @property
     def linear_constraints(self):
@@ -81,10 +79,10 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                 matrix[i, self.var_to_idex(self.X[i][j])] = 1
             matrix[i, total_columns - 1] = 1
         for j in range(n):
-            for k, (a, b) in enumerate(self.pairs_adjacent):
-                matrix[m + j * p + k, self.var_to_idex(self.X[a][j])] = 1
-                matrix[m + j * p + k, self.var_to_idex(self.X[b][j])] = 1
-                matrix[m + j * p + k, self.var_to_idex(self.Y[j][k])] = -1
+            for k, (u, v) in enumerate(self.pairs_adjacent):
+                matrix[m + j * p + k, self.var_to_idex(self.X[u][j])] = 1
+                matrix[m + j * p + k, self.var_to_idex(self.X[v][j])] = 1
+                matrix[m + j * p + k, self.var_to_idex(self.Y[k][j])] = -1
         return matrix
     
     # def fast_solve_driver_bitstr(self):
@@ -96,9 +94,11 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         # graph_i color color_i
         for i in range(self.num_graphs):
             self.X[i][i].set_value(1)
-        for k, (a, b) in enumerate(self.pairs_adjacent):
-            self.Y[a][k].set_value(1)
-            self.Y[b][k].set_value(1)
+        for k, (u, v) in enumerate(self.pairs_adjacent):
+            for j in range(self.num_colors):
+                self.Y[k][j].set_value(self.X[u][j].x + self.X[v][j].x)
+            # self.Y[k][a].set_value(1)
+            # self.Y[k][b].set_value(1)
         return [var.x for var in self.variables]
 
     def get_objective_func(self, algorithm_optimization_method):
@@ -116,14 +116,16 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             # costfun_1
             cost = 0
             for j in range(n):
-                if 1 in [variables[self.var_to_idex(self.X[i][j])] for i in range(self.num_graphs)]:
-                    cost += 1
+                t = 1
+                for i in range(m):
+                    t *= 1 - variables[self.var_to_idex(self.X[i][j])]
+                cost += 1 - t
             # commute 只需要目标函数一项
             if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for j in range(n):
-                for k, (a, b) in enumerate(self.pairs_adjacent):
-                    cost += self.penalty_lambda * (variables[self.var_to_idex(self.X[a][j])] + variables[self.var_to_idex(self.X[b][j])] - variables[self.var_to_idex(self.Y[j][k])])**2
+                for k, (u, v) in enumerate(self.pairs_adjacent):
+                    cost += self.penalty_lambda * (variables[self.var_to_idex(self.X[u][j])] + variables[self.var_to_idex(self.X[v][j])] - variables[self.var_to_idex(self.Y[k][j])])**2
             # cyclic 多包含一项∑=x
             if algorithm_optimization_method == 'cyclic':
                 return self.cost_dir * cost

@@ -25,6 +25,7 @@ def make_unitary(matrix, tol=1e-9):
 def set_print_form(suppress=True, precision=4, linewidth=300):
     # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
     np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
+    # np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
 
 # 把矩阵转换成行阶梯矩阵
 def to_row_echelon_form(orimatrix: np.array):

@@ -50,7 +50,7 @@ class Variable:
         return self.x * other
     
 class ConstrainedBinaryOptimization(Model):
-    def __init__(self,fastsolve=False):
+    def __init__(self, fastsolve=False):
         """ a constrainted binary optimization problem
 
         Args:
@@ -71,7 +71,7 @@ class ConstrainedBinaryOptimization(Model):
         # self._constraints 预留为 linear 和 nonlinear 的并集
         self._linear_constraints = None  # yeld by @property 是 for_cyclic 和 for_others 的并集
         self._constraints_classify_cyclic_others  = None # cyclic 用于存∑=x
-        self.objective_func_term_list = [[], []] # 暂设目标函数最高次为2, 解释见 statement
+        self.objective_func_term_list = [[], []] # 暂设目标函数最高次为2, 任意次的子类自行重载, 解释见 statement
         self.objective_func = None
         self.objective_penalty = None
         self.objective_cyclic = None
@@ -91,8 +91,13 @@ class ConstrainedBinaryOptimization(Model):
         self.cost_dir = 1 if dir == 'min' else -1 if dir == 'max' else None
 
     def find_state_probability(self, state):
-        index = self.collapse_state.index(state)
-        return self.probs[index]
+        try:
+            index = self.collapse_state.index(state)
+        except ValueError as e:
+            # print(f"ValueError occurred: {e}")
+            return 0
+        else:
+            return self.probs[index]
     
     def set_algorithm_optimization_method(self, type='commute', penalty_lambda = None):
         """
@@ -209,7 +214,7 @@ class ConstrainedBinaryOptimization(Model):
             # self.objective_matrix[i][i] = coefficients
     
     def add_nonlinear_objective(self, term_list: Iterable, coefficient):
-        self.objective_func_term_list[1].append([term_list, coefficient])
+        self.objective_func_term_list[len(term_list) - 1].append([term_list, coefficient])
 
     def add_eq_constraint(self, coefficients: Iterable, variable):
         """_summary_
@@ -258,7 +263,7 @@ class ConstrainedBinaryOptimization(Model):
     @property
     def constraints_classify_cyclic_others(self):
         if self._constraints_classify_cyclic_others is None:
-            self._constraints_classify_cyclic_others = [[]] * 2
+            self._constraints_classify_cyclic_others = [[] for _ in range(2)]
             for cstrt in self.linear_constraints:
                 assert len(cstrt) == 1 + len(self.variables)
                 if set(cstrt[:-1]).issubset({0, 1}):
@@ -284,11 +289,11 @@ class ConstrainedBinaryOptimization(Model):
             if all([np.dot(bitstr,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
                 return bitstr
         return
-    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_decompose=False, circuit_type='pennylane', mcx_mode='constant', debug=True, backend='FakeAlmadenV2') -> None: 
-
+    def optimize(self, params_optimization_method='Adam', max_iter=30, learning_rate=0.1, num_layers=2, need_draw=False, beta1=0.9, beta2=0.999, use_decompose=False, circuit_type='pennylane', mcx_mode='constant', use_debug=True, backend='FakeAlmadenV2') -> None: 
+        np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
         self.feasiable_state = self.get_feasible_solution()
-        print(f'fsb_state:{self.feasiable_state}') #-
-        
+        print(f'fsb_state: {self.feasiable_state}') #-
+        print(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-
         optimizer_option = OptimizerOption(
             params_optimization_method=params_optimization_method,
             max_iter=max_iter,
@@ -313,7 +318,7 @@ class ConstrainedBinaryOptimization(Model):
             constraints_for_cyclic=self.constraints_classify_cyclic_others[0],
             constraints_for_others=self.constraints_classify_cyclic_others[1],
             Hd_bits_list = self.get_driver_bitstr,
-            debug=debug,
+            use_debug=use_debug,
             backend=backend,
         )
 
@@ -331,8 +336,15 @@ class ConstrainedBinaryOptimization(Model):
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
         cost = circuit_option.objective_func(max_prob_solution)
-        print(collapse_state)
+        # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
+        # print(dict(zip(collapse_state_str, probs)))
+        mean_cost = 0
+        for c, p in zip(collapse_state, probs):
+            if p >= 1e-3:
+                print(f'{c}: {self.objective_penalty(c)} - {p}')
+            mean_cost += self.objective_penalty(c) * p
         print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+        print(f"mean_cost: {mean_cost}")
         self.collapse_state=collapse_state
         self.probs=probs
 

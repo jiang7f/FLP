@@ -25,7 +25,7 @@
 - $y_{i j}+z_{i j}-x_j=0 \text{ for all } i=1, \cdots, m\text{ and } j=1, \cdots, n$
 - $z_{i j}, y_{i j}, x_j \in\{0,1\}$
 
-## 2. 图着色问题 Graph Coloring Problem (GCP)
+## 2. 图着色问题 Graph Coloring Problem (GCP) 
 
 **变量**:
 
@@ -34,19 +34,27 @@
 
 **目标函数**:
 
-- $\min n$
+- $\min \sum_{j = 1}^n (1-\prod_{i=1}^m(1-x_{ij}))$
 
 **约束**:
 
 - $\sum_{j = 1}^n x_{ij} = 1 \text{ for all } i = 1, \cdots, m$
-- $x_{a_kj} + x_{b_kj} \leq 1$ for all pair of adjacent graphs $(a_k, b_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
+- $x_{u_kj} + x_{v_kj} \leq 1$ for all pair of adjacent graphs $(u_k, v_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
 - $x_{ij} \in\{0,1\}$
 
 **等式约束**:
 
 - $\sum_{j = 1}^n x_{ij} = 1 \text{ for all } i = 1, \cdots, m$
-- $x_{a_kj} + x_{b_kj} - y_{jk} = 0$ for all pair of adjacent graphs $(a_k, b_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
-- $x_{ij}, y_{jk} \in\{0,1\}$
+- $x_{u_kj} + x_{v_kj} - y_{kj} = 0$ for all pair of adjacent graphs $(u_k, v_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
+- $x_{ij}, y_{kj} \in\{0,1\}$
+
+## k-分割问题
+
+𝒌-分割问题是一个经典的组合优化问题，它的额外约束条件要求将一组顶点（或元素）精确地分成𝑘个分区块。每个分区块𝑗必须包含由向量𝑚 ∈ ℕ𝑘指定的特定数量的顶点。具体而言，向量𝑚 = (𝑚₁, 𝑚₂, …, 𝑚𝑘)中的每个元素𝑚𝑗表示第𝑗个分区块包含的顶点数，且满足约束条件∑ 𝑗 𝑚𝑗 = 𝑛，其中𝑛是总顶点数。
+
+可行的分割方案由一个𝑛×𝑘的二进制矩阵𝑋 ∈ {0, 1}𝑛×𝑘表示。矩阵𝑋中的元素𝑋𝑖𝑗 = 1表示顶点𝑖被分配到分区块𝑗中，𝑋𝑖𝑗 = 0表示顶点𝑖不在分区块𝑗中。满足约束条件𝑋𝑒 = 𝑒（每个顶点恰好属于一个分区块）和𝑋^𝑇𝑒 = 𝑚（每个分区块包含恰好指定数量的顶点）。
+
+特别地，当所有的𝑚𝑗相等时，即𝑚₁ = 𝑚₂ = … = 𝑚𝑘 = 𝑛/𝑘，这种均衡分割的情况在某些通信问题中尤为重要，能够实现负载均衡或资源分配的优化
 
 ## 3. 最大团问题 Maximum Clique Problem (MCP)
 

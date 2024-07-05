@@ -7,8 +7,8 @@ mcp.optimize(params_optimization_method='COBYLA',
              num_layers=10,
              need_draw=True,
              use_decompose=True,
-             circuit_type='pennylane',
+             circuit_type='qiskit',
              mcx_mode='constant',
-             debug=False)
+             use_debug=False)
 # print(mcp.find_state_probability([0, 1, 0, 1, 0, 1, 0, 0, 0, 0]))
 # print(mcp.find_state_probability([1, 0, 1, 0, 0, 0]))
