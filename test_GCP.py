@@ -17,8 +17,8 @@ circuit_option = CircuitOption(
     use_decompose=True,
     circuit_type='qiskit',
     mcx_mode='constant',
-    use_debug=False,
-    backend='AerSimulator'  # 'FakeQuebec' # 'AerSimulator'
+    backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
+    feedback=None,
 )
 gcp.optimize(optimizer_option, circuit_option)
 print(gcp.find_state_probability([0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0]))

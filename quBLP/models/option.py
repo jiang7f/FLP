@@ -19,8 +19,8 @@ class CircuitOption:
     use_decompose: bool = False
     circuit_type: str = 'qiskit'
     mcx_mode: str = 'constant'  # 'constant' for 2 additional ancillas with linear depth, 'linear' for n-1 additional ancillas with logarithmic depth
-    use_debug: bool = True
-    backend: str = 'FakeAlmadenV2' #'FakeQuebec' # 'AerSimulator'
+    backend: str = 'FakeAlmadenV2' #'FakeQuebec' # 'AerSimulator'\
+    feedback: List = field(default_factory=list)
     # 
     num_qubits: int = 0
     algorithm_optimization_method: str = 'commute'

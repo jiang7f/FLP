@@ -39,41 +39,39 @@ class QiskitCircuit:
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'AerSimulator':
             self.backend = AerSimulator()    # 仿真
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2)        
+            # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
     def inference(self, params, shots=1024):
-        if self.circuit_option.use_debug:
-            start = perf_counter()
+        feedback = self.circuit_option.feedback
         if self.circuit_option.use_decompose:
             final_qc = self.inference_circuit.assign_parameters(params) # 已使用pass_manager编译过的理论电路 (只缺参数)
         else:
             final_qc = self.inference_circuit(params)
-        if self.circuit_option.use_debug:
-            feature = Feature(final_qc, self.backend)
-            print(f'width: {feature.width}')
-            print(f'depth: {feature.depth}')
-            print(f'num_one_qubit_gates: {feature.num_one_qubit_gates}')
-            print(f'num_two_qubit_gates: {feature.num_two_qubit_gates}')
-            print(f'size: {feature.size}')
-            if self.circuit_option.backend != 'AerSimulator':
-                print(f'latency_all(): {feature.latency_all()}')
-            print(f'get_depth_without_one_qubit_gate(): {feature.get_depth_without_one_qubit_gate()}')
-        # print("final_qc.duration()", final_qc.duration())
-        options = {"simulator": {"seed_simulator": 42}}
-        sampler = Sampler(backend=self.backend, options=options)
-        result = sampler.run([final_qc],shots=shots).result()
+        if feedback is None or feedback == [] or 'run_time' in feedback:
+            start = perf_counter()
+            options = {"simulator": {"seed_simulator": 42}}
+            sampler = Sampler(backend=self.backend, options=options)
+            result = sampler.run([final_qc],shots=shots).result()
+            end = perf_counter()
+            self.run_time = end - start
+        if feedback is not None and len(feedback) > 0:
+            feature = Feature(final_qc, None)
+            self.width = feature.width
+            self.depth = feature.depth
+            self.num_one_qubit_gates = feature.num_one_qubit_gates
+            self.num_two_qubit_gates = feature.num_two_qubit_gates
+            self.size = feature.size
+            # self.latency = feature.latency_all()
+            self.culled_depth = feature.get_depth_without_one_qubit_gate()
+            feedback_data = {feedback_term: getattr(self, feedback_term, None) for feedback_term in feedback}
+            raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}",
+                                        data=feedback_data)
         pub_result = result[0]
         counts = pub_result.data.c.get_counts()
         collapse_state = [[int(char) for char in state] for state in counts.keys()]
         total_count = sum(counts.values())
         probs = [count / total_count for count in counts.values()]
-        if self.circuit_option.use_debug:
-            end = perf_counter()
-            print(end - start)
-            self.circuit_option.use_decompose
-            circuit_option = self.circuit_option
-            raise QuickFeedbackException(message=f"debug finished: {circuit_option.algorithm_optimization_method}, {circuit_option.backend}, use_decompose={circuit_option.use_decompose}",
-                                         data=[feature.get_depth_without_one_qubit_gate(), feature.latency_all()])
         return collapse_state, probs
     
     def create_circuit(self) -> None:
@@ -185,12 +183,12 @@ class QiskitCircuit:
                 for i in range(num_qubits):
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
-            transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.use_debug:
+            transpiled_qc = self.pass_manager.run(qc)  
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
-                print(end - start)
+                self.transpile_time = end - start
             return transpiled_qc
 
         def circuit_cyclic(params=None):
@@ -256,12 +254,12 @@ class QiskitCircuit:
                 for i in others_qubit_set:
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
-                print(end - start)
+                self.transpile_time = end - start
             return transpiled_qc
         
         def circuit_commute(params=None):
@@ -306,12 +304,12 @@ class QiskitCircuit:
                         qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
                     qc.measure(range(num_qubits), range(num_qubits)[::-1])
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
-                print(end - start)
+                self.transpile_time = end - start
             return transpiled_qc
         
         def circuit_HEA(params=None):
@@ -334,12 +332,12 @@ class QiskitCircuit:
                 for i in range(num_qubits):
                     qc.cx(i, (i + 1) % num_qubits)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.use_debug:
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
-                print(end - start)
+                self.transpile_time = end - start
             return transpiled_qc
     
         circuit_map = {
@@ -363,11 +361,19 @@ class QiskitCircuit:
         return circuit_cost_function
     
     def draw_circuit(self) -> None:
-        qc = self.inference_circuit
-        if self.circuit_option.algorithm_optimization_method == 'HEA':
-            print(qc.assign_parameters(np.zeros(self.num_layers * self.num_qubits * 3)).draw())
+        # 待修改
+        if self.circuit_option.use_decompose:
+            qc = self.inference_circuit
+            if self.circuit_option.algorithm_optimization_method == 'HEA':
+                print(qc.assign_parameters(np.zeros(self.num_layers * self.num_qubits * 3)).draw())
+            else:
+                print(qc.assign_parameters(np.zeros(self.num_layers * 2)).draw())
         else:
-            print(qc.assign_parameters(np.zeros(self.num_layers * 2)).draw())
+            if self.circuit_option.algorithm_optimization_method == 'HEA':
+               params = np.zeros(self.num_layers * self.num_qubits * 3)
+            else:
+               params = np.zeros(self.num_layers * 2)
+            print(self.inference_circuit(params).draw())
 
 class PennylaneCircuit:
     def __init__(self, circuit_option: CircuitOption):

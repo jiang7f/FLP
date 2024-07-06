@@ -14,8 +14,8 @@ circuit_option = CircuitOption(
     use_decompose=True,
     circuit_type='qiskit',
     mcx_mode='constant',
-    use_debug=False,
-    backend='AerSimulator'  # 'FakeQuebec' # 'AerSimulator'
+    backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
+    feedback=None,
 )
 kpp.optimize(optimizer_option, circuit_option)
 print(kpp.find_state_probability([1, 0, 1, 0, 0, 1, 0, 1]))
