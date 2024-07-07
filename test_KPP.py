@@ -1,6 +1,6 @@
 from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
-kpp = KPP(3, [1, 2], [[[0, 1], 1], [[0, 2], 2],[[2,1],10]])
+kpp = KPP(6, [2, 1, 2], [[[0, 1], 1], [[0, 2], 2],[[2,1],10]])
 
 kpp.set_optimization_direction('max')
 kpp.set_algorithm_optimization_method('commute', 400)

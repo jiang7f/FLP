@@ -283,6 +283,7 @@ class ConstrainedBinaryOptimization(Model):
         return basic_vector
 
     def get_feasible_solution(self):
+        print("??")
         ## find a feasible solution for the linear_constraints
         for i in range(1 << len(self.variables)):
             bitstr = [int(j) for j in list(bin(i)[2:].zfill(len(self.variables)))]
@@ -300,7 +301,9 @@ class ConstrainedBinaryOptimization(Model):
         circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
         circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
         circuit_option.Hd_bits_list  = self.get_driver_bitstr
-
+        print("solution:")
+        print(circuit_option.Hd_bits_list)
+        exit()
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
         print(f'fsb_state: {circuit_option.feasiable_state}') #-
         print(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-

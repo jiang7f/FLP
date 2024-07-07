@@ -66,24 +66,28 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
     
     @property
     def linear_constraints(self):
-        from quBLP.utils import linear_system as ls
-        ls.set_print_form()
-        m = self.num_graphs
-        n = self.num_colors # 颜色的最大数量
-        p = self.num_adjacent
-        total_rows = m + p * n
-        total_columns = m * n + p * n + 1
-        matrix = np.zeros((total_rows, total_columns))
-        for i in range(m):
+        if self._linear_constraints is None:
+            from quBLP.utils import linear_system as ls
+            ls.set_print_form()
+            m = self.num_graphs
+            n = self.num_colors # 颜色的最大数量
+            p = self.num_adjacent
+            total_rows = m + p * n
+            total_columns = m * n + p * n + 1
+            matrix = np.zeros((total_rows, total_columns))
+            for i in range(m):
+                for j in range(n):
+                    matrix[i, self.var_to_idex(self.X[i][j])] = 1
+                matrix[i, total_columns - 1] = 1
             for j in range(n):
-                matrix[i, self.var_to_idex(self.X[i][j])] = 1
-            matrix[i, total_columns - 1] = 1
-        for j in range(n):
-            for k, (u, v) in enumerate(self.pairs_adjacent):
-                matrix[m + j * p + k, self.var_to_idex(self.X[u][j])] = 1
-                matrix[m + j * p + k, self.var_to_idex(self.X[v][j])] = 1
-                matrix[m + j * p + k, self.var_to_idex(self.Y[k][j])] = -1
-        return matrix
+                for k, (u, v) in enumerate(self.pairs_adjacent):
+                    matrix[m + j * p + k, self.var_to_idex(self.X[u][j])] = 1
+                    matrix[m + j * p + k, self.var_to_idex(self.X[v][j])] = 1
+                    matrix[m + j * p + k, self.var_to_idex(self.Y[k][j])] = -1
+            self._linear_constraints = matrix
+            print("constraints:")
+            print(self._linear_constraints)
+        return self._linear_constraints
     
     # def fast_solve_driver_bitstr(self):
 

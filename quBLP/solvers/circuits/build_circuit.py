@@ -56,13 +56,13 @@ class QiskitCircuit:
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
-            feature = Feature(final_qc, None)
+            feature = Feature(final_qc, self.backend)
             self.width = feature.width
             self.depth = feature.depth
             self.num_one_qubit_gates = feature.num_one_qubit_gates
             self.num_two_qubit_gates = feature.num_two_qubit_gates
             self.size = feature.size
-            # self.latency = feature.latency_all()
+            self.latency = feature.latency_all()
             self.culled_depth = feature.get_depth_without_one_qubit_gate()
             feedback_data = {feedback_term: getattr(self, feedback_term, None) for feedback_term in feedback}
             raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}",

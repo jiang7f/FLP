@@ -16,7 +16,7 @@ class Feature:
             circuit (QuantumCircuit): instance of circuit
             backend (_type_): the qpu backend in IBM backend object, contains the information of a qpu
         """
-        if backend is None:
+        if backend is None or backend.name == 'aer_simulator':
              self._circuit = circuit
         else:
             self._circuit = transpile(circuit, backend)
