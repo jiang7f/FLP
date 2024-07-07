@@ -4,7 +4,8 @@ from ..models import ConstrainedBinaryOptimization
 from quBLP.utils.quantum_lib import *
 
 class KPartitionProblem(ConstrainedBinaryOptimization):
-    def __init__(self, num_points: int, block_allot: List[int], pairs_connected: List[Tuple[Tuple[int, int], int]], fastsolve=False) -> None:
+    def __init__(self, num_points: int, block_allot: List[int], pairs_connected: List[Tuple[int, int]], fastsolve=False) -> None:
+        # pairs_connected: List[Tuple[Tuple[int, int], int]]
         super().__init__(fastsolve)
         self.set_optimization_direction('max')
         self.num_points = num_points
@@ -25,10 +26,12 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
     
     def add_kpp_objective(self):
         k = self.num_block
-        for pair, w in self.pairs_connected:
+        for pair in self.pairs_connected:
+        # for pair, w in self.pairs_connected:
             u = pair[0]
             v = pair[1]
-            theta = -w
+            theta = -1
+            # theta = -w
             for j in range(k):
                 self.add_nonlinear_objective([self.var_to_idex(self.X[u][j]), self.var_to_idex(self.X[v][j])], self.cost_dir * theta)
         pass
@@ -75,7 +78,8 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
         k = self.num_block
         def objective(variables:Iterable):
             cost = 0
-            for pair, w in self.pairs_connected:
+            for pair in self.pairs_connected:
+            # for pair, w in self.pairs_connected:
                 u = pair[0]
                 v = pair[1]
                 t = 0
@@ -83,7 +87,8 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
                     x_uj = variables[self.var_to_idex(self.X[u][j])]
                     x_vj = variables[self.var_to_idex(self.X[v][j])]
                     t += x_uj * x_vj
-                cost += w * (1 - t)
+                cost += 1 * (1 - t)
+                # cost += w * (1 - t)
             if algorithm_optimization_method == 'commute':
                 return self.cost_dir * cost
             for j in range(k):

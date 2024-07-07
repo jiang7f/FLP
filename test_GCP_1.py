@@ -1,5 +1,5 @@
 import csv
-from quBLP.problemtemplate import FacilityLocationProblem as FLP
+from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.models import CircuitOption, OptimizerOption
 
 optimizer_option = OptimizerOption(
@@ -18,12 +18,11 @@ circuit_option = CircuitOption(
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 feedback = ['depth', 'culled_depth']
 
-problems = [FLP(2,1,[[10, 2]],[2, 2]), 
-            FLP(2,2,[[10, 2],[1, 20]],[1, 1]),
-            FLP(3,2,[[10, 2, 3],[1, 20, 3]],[1, 1, 1]),
-            FLP(3,3,[[10, 2, 3],[10, 2, 3],[10, 2, 3]],[1, 1, 1]),
-            FLP(4,3,[[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1]],[1, 1, 1, 1]),]
-            # FLP(5,5,[[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1]],[1, 1, 1, 1, 1])]
+problems = [GCP(3,[[0, 1]]), 
+            GCP(3,[[0, 1],[1, 2]]),
+            GCP(4,[[0, 1]]),
+            GCP(4,[[0, 1],[1, 2]]),
+            GCP(4,[[0, 1],[1, 2],[2,3]])]
 
 csv_data = []
 
@@ -33,25 +32,25 @@ for dict_term in feedback:
         headers.extend([f'{method}_{dict_term}_Layer_{l}' for l in range(1, 2)])
 csv_data.append(headers)
 
-for flp in problems:
+for gcp in problems:
     data = [[] for _ in range(len(methods))]
     layers = range(1, 2)
     for idx, method in enumerate(methods):
-        flp.set_algorithm_optimization_method(method, 400)
+        gcp.set_algorithm_optimization_method(method, 400)
         for num_layers in layers:
             circuit_option.num_layers = num_layers
-            data[idx].append(flp.optimize(optimizer_option, circuit_option))
+            data[idx].append(gcp.optimize(optimizer_option, circuit_option))
     
-    print(f'问题规模:{flp.m} * {flp.n}')
-    print(f'v: {flp.num_variables}, c: {len(flp.linear_constraints)}')
+    print(f'问题规模:{gcp.num_graphs}, {gcp.pairs_adjacent}')
+    print(f'v: {gcp.num_variables}, c: {len(gcp.linear_constraints)}')
 
-    row = [f'{flp.m}, {flp.n}', flp.num_variables, len(flp.linear_constraints)]
+    row = [f'{gcp.num_graphs}, {gcp.pairs_adjacent}', gcp.num_variables, len(gcp.linear_constraints)]
     for dict_term in feedback:
         for idx, method in enumerate(methods):
             row.extend([data[idx][l - 1][dict_term] for l in layers])
     csv_data.append(row)
 
-csv_filename = 'flp_results_depth.csv'
+csv_filename = 'gcp_results_depth.csv'
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)

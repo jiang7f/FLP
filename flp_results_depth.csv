@@ -1,0 +1,6 @@
+Problem_Size,Variables,Constraints,penalty_depth_Layer_1,cyclic_depth_Layer_1,commute_depth_Layer_1,HEA_depth_Layer_1,penalty_culled_depth_Layer_1,cyclic_culled_depth_Layer_1,commute_culled_depth_Layer_1,HEA_culled_depth_Layer_1
+"1, 2",6,3,23,42,107,16,8,14,43,6
+"2, 2",10,6,32,50,517,20,12,18,256,10
+"2, 3",15,8,40,66,977,25,16,22,488,15
+"3, 3",21,12,50,75,1407,31,20,26,672,21
+"3, 4",28,15,59,92,2075,38,24,30,1000,28

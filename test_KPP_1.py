@@ -1,5 +1,5 @@
 import csv
-from quBLP.problemtemplate import FacilityLocationProblem as FLP
+from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 
 optimizer_option = OptimizerOption(
@@ -18,12 +18,11 @@ circuit_option = CircuitOption(
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 feedback = ['depth', 'culled_depth']
 
-problems = [FLP(2,1,[[10, 2]],[2, 2]), 
-            FLP(2,2,[[10, 2],[1, 20]],[1, 1]),
-            FLP(3,2,[[10, 2, 3],[1, 20, 3]],[1, 1, 1]),
-            FLP(3,3,[[10, 2, 3],[10, 2, 3],[10, 2, 3]],[1, 1, 1]),
-            FLP(4,3,[[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1]],[1, 1, 1, 1]),]
-            # FLP(5,5,[[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1],[1, 1, 1, 1, 1]],[1, 1, 1, 1, 1])]
+problems = [KPP(3,[2, 1],[[0, 1], [1,2]]), 
+            KPP(4,[3, 1],[[0, 1], [1, 2],[2, 3]]),
+            KPP(5,[4, 1],[[0, 1], [1, 2], [2, 3], [3, 4]]),
+            KPP(5,[3, 2], [[0, 1], [1, 2], [2, 3], [3, 4]]),
+            KPP(5,[3, 1, 1], [[0, 1], [1, 2], [2, 3], [3, 4]])]
 
 csv_data = []
 
@@ -33,25 +32,25 @@ for dict_term in feedback:
         headers.extend([f'{method}_{dict_term}_Layer_{l}' for l in range(1, 2)])
 csv_data.append(headers)
 
-for flp in problems:
+for kpp in problems:
     data = [[] for _ in range(len(methods))]
     layers = range(1, 2)
     for idx, method in enumerate(methods):
-        flp.set_algorithm_optimization_method(method, 400)
+        kpp.set_algorithm_optimization_method(method, 400)
         for num_layers in layers:
             circuit_option.num_layers = num_layers
-            data[idx].append(flp.optimize(optimizer_option, circuit_option))
+            data[idx].append(kpp.optimize(optimizer_option, circuit_option))
     
-    print(f'问题规模:{flp.m} * {flp.n}')
-    print(f'v: {flp.num_variables}, c: {len(flp.linear_constraints)}')
+    print(f'问题规模:{kpp.num_points}, {kpp.block_allot}, {kpp.pairs_connected}')
+    print(f'v: {kpp.num_variables}, c: {len(kpp.linear_constraints)}')
 
-    row = [f'{flp.m}, {flp.n}', flp.num_variables, len(flp.linear_constraints)]
+    row = [f'{kpp.num_points}, {kpp.block_allot}, {kpp.pairs_connected}', kpp.num_variables, len(kpp.linear_constraints)]
     for dict_term in feedback:
         for idx, method in enumerate(methods):
             row.extend([data[idx][l - 1][dict_term] for l in layers])
     csv_data.append(row)
 
-csv_filename = 'flp_results_depth.csv'
+csv_filename = 'kpp_results_depth.csv'
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)

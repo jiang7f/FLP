@@ -39,7 +39,7 @@ class QiskitCircuit:
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'AerSimulator':
             self.backend = AerSimulator()    # 仿真
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2)        
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'rz', 'h', 'x', 'cp'])        
             # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
     def inference(self, params, shots=1024):
@@ -56,6 +56,7 @@ class QiskitCircuit:
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
+            # print(final_qc.draw())
             feature = Feature(final_qc, self.backend)
             self.width = feature.width
             self.depth = feature.depth

@@ -1,0 +1,6 @@
+Problem_Size,Variables,Constraints,penalty_depth_Layer_1,cyclic_depth_Layer_1,commute_depth_Layer_1,HEA_depth_Layer_1,penalty_culled_depth_Layer_1,cyclic_culled_depth_Layer_1,commute_culled_depth_Layer_1,HEA_culled_depth_Layer_1
+"3, [[0, 1]]",12,6,59,84,410,22,28,34,172,12
+"3, [[0, 1], [1, 2]]",15,9,71,96,1158,25,34,40,578,15
+"4, [[0, 1]]",20,8,157,189,693,30,93,99,311,20
+"4, [[0, 1], [1, 2]]",24,12,170,202,1815,34,99,105,920,24
+"4, [[0, 1], [1, 2], [2, 3]]",28,16,183,215,2547,38,105,111,1307,28
