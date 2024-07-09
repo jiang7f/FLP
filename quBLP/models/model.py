@@ -316,19 +316,48 @@ class ConstrainedBinaryOptimization(Model):
             collapse_state, probs = solve(optimizer_option, circuit_option)
         except QuickFeedbackException as qfe:
             return qfe.data
+        self.collapse_state=collapse_state
+        self.probs=probs
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
         cost = circuit_option.objective_func(max_prob_solution)
         # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
         # print(dict(zip(collapse_state_str, probs)))
+
+        # 算最优解和最优解的cost
+        state_0 = [int(j) for j in list(bin(0)[2:].zfill(len(self.variables)))]
+        best_cost = self.objective_penalty(state_0)
+        best_solution_list = [state_0]
+        for i in range(1, 1 << len(self.variables)):
+            bitstr = [int(j) for j in list(bin(i)[2:].zfill(len(self.variables)))]
+            record_value = self.objective_penalty(bitstr)
+            if record_value < best_cost:
+                best_cost = record_value
+                best_solution_list = [bitstr]
+            elif record_value == best_cost:
+                best_solution_list.append(bitstr)
+        print(f'best_cost: {best_cost}')
+        print(f'best_solution: {best_solution_list}')
         mean_cost = 0
         for c, p in zip(collapse_state, probs):
             if p >= 1e-3:
                 print(f'{c}: {self.objective_penalty(c)} - {p}')
             mean_cost += self.objective_penalty(c) * p
         print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+        best_solution_probs = sum([self.find_state_probability(best_solution) for best_solution in best_solution_list])
+        best_solution_probs *= 100
+        print(f'best_solution_probs: {best_solution_probs}')
         print(f"mean_cost: {mean_cost}")
-        self.collapse_state=collapse_state
-        self.probs=probs
+        in_constraints_probs = 0
+        for cs, pr in zip(self.collapse_state, self.probs):
+            if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
+                in_constraints_probs += pr
+        in_constraints_probs *= 100
+        print(f'in_constraint_probs: {in_constraints_probs}')
+        ARG = abs(mean_cost - best_cost / best_cost)
+        print(f'ARG: {ARG}')
+        return ARG, in_constraints_probs, best_solution_probs
+
+        
 

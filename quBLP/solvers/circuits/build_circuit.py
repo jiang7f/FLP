@@ -39,7 +39,7 @@ class QiskitCircuit:
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'AerSimulator':
             self.backend = AerSimulator()    # 仿真
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'rz', 'h', 'x', 'cp'])        
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])        
             # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
     def inference(self, params, shots=1024):
@@ -307,7 +307,7 @@ class QiskitCircuit:
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
-            transpiled_qc = self.pass_manager.run(qc)
+            transpiled_qc = self.pass_manager.run(qc.decompose(reps=3))
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = end - start

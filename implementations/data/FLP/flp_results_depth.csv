@@ -1,0 +1,11 @@
+Problem_Size,Layers,Variables,Constraints,MCX_Mode,penalty_depth,cyclic_depth,commute_depth,HEA_depth,penalty_culled_depth,cyclic_culled_depth,commute_culled_depth,HEA_culled_depth
+"1, 2",1,6,3,constant,25,41,139,13,8,14,45,6
+"2, 2",1,10,6,constant,34,49,522,17,12,18,202,10
+"2, 3",1,15,8,constant,42,62,974,22,16,22,380,15
+"3, 3",1,21,12,constant,52,71,3138,28,20,26,1340,21
+"3, 4",1,28,15,constant,61,85,4655,35,24,30,2000,28
+"1, 2",1,6,3,linear,25,41,139,13,8,14,45,6
+"2, 2",1,10,6,linear,34,49,589,17,12,18,256,10
+"2, 3",1,15,8,linear,42,62,1109,22,16,22,488,15
+"3, 3",1,21,12,linear,52,71,1627,28,20,26,672,21
+"3, 4",1,28,15,linear,61,85,2393,35,24,30,1000,28

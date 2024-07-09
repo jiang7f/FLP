@@ -15,7 +15,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         z_{i j}, y_{i j}, x_j \in\{0,1\} 
 
     """
-    def __init__(self, n: int, m: int, c: Iterable[Iterable],f: Iterable, fastsolve=True) -> None:
+    def __init__(self, num_demand: int, num_facilities: int, c: Iterable[Iterable],f: Iterable, fastsolve=True) -> None:
         """ a facility location problem
 
         Args:
@@ -28,17 +28,17 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         #* 设定优化方向
         self.set_optimization_direction('min')
         # 需求点个数
-        self.m = m
+        self.m = num_demand
         # 设施点个数
-        self.n = n
+        self.n = num_facilities
         # cij需求i到设施j的成本
         self.c = c 
         # fj设施j的建设成本
         self.f = f
-        self.num_variables = n + 2 * n * m
-        self.X = self.add_binary_variables('x', [n])
-        self.Y = self.add_binary_variables('y', [m, n])
-        self.Z = self.add_binary_variables('z', [m, n])
+        self.num_variables = num_facilities + 2 * num_facilities * num_demand
+        self.X = self.add_binary_variables('x', [num_facilities])
+        self.Y = self.add_binary_variables('y', [num_demand, num_facilities])
+        self.Z = self.add_binary_variables('z', [num_demand, num_facilities])
 
         self.objective_penalty = self.get_objective_func('penalty')
         self.objective_cyclic = self.get_objective_func('cyclic')
