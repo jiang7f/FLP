@@ -29,33 +29,30 @@ problems = [
     KPP(5, [3, 2], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
     KPP(5, [3, 1, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
 ]
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
+evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']
+layers = range(1, 6)
 
-mcx_modes = ['constant', 'linear']
-if_use_decompose = [True, False]
-feedback = ['transpile_time', 'depth', 'culled_depth']
-layers = range(1, 2)
+headers = ['pid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 
-headers = ["pid", 'num_layers', "use_decompose"] + feedback
-
-def process_layer(prb, use_decompose, num_layers, feedback):
-    prb.set_algorithm_optimization_method('commute', 400)
+def process_layer(prb, num_layers, method):
+    prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
         num_layers=num_layers,
         need_draw=False,
-        use_decompose=use_decompose,
+        use_decompose=True,
         circuit_type='qiskit',
-        mcx_mode='constant',
+        mcx_mode='linear',
         backend='AerSimulator',
-        feedback=feedback,
     )
-    result = prb.optimize(optimizer_option, circuit_option)
-    return result
+    ARG, in_constraints_probs, best_solution_probs = prb.optimize(optimizer_option, circuit_option)
+    return [ARG, in_constraints_probs, best_solution_probs]
 
 if __name__ == '__main__':
-    set_timeout = 60 * 60 * 24 # Set timeout duration
+    set_timeout = 60 * 60 * 5 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
-    new_path = script_path.replace('test', 'data')[:-3]
+    new_path = script_path.replace('experiment', 'data')[:-3]
     print(new_path)
     with open(f'{new_path}.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -63,33 +60,35 @@ if __name__ == '__main__':
 
         with ProcessPoolExecutor() as executor:
             futures = []
-            for use_decompose in if_use_decompose:
-                for pid, prb in enumerate(problems):
-                    for num_layers in layers:
-                        future = executor.submit(process_layer, prb, use_decompose, num_layers, feedback)
-                        futures.append((future, pid, use_decompose, num_layers))
+            for pid, prb in enumerate(problems):
+                for idx, method in enumerate(methods):
+                    for layer in layers:
+                        print(f'{pid}, {layer}, {method} build')
+                        future = executor.submit(process_layer, prb, layer, method)
+                        futures.append((future, prb, pid, layer, method))
 
             start_time = time.perf_counter()
-            for future, pid, use_decompose, num_layers in futures:
+            for future, prb, pid, layer, method in futures:
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
                 try:
-                    result = future.result(timeout=remaining_time)
-                    for dict_term in feedback:
-                        diff.append(result[dict_term])
-                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} executed successfully.")
+                    metrics = future.result(timeout=remaining_time)
+                    diff.extend(metrics)
+                    print(f"Task for problem {pid} L={layer} {method} executed successfully.")
                 except MemoryError:
-                    for dict_term in feedback:
+                    print(f"Task for problem {pid} L={layer} {method} encountered a MemoryError.")
+                    for dict_term in evaluation_metrics:
                         diff.append('memory_error')
-                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} encountered a MemoryError.")
                 except TimeoutError:
-                    for dict_term in feedback:
+                    print(f"Task for problem {pid} L={layer} {method} timed out.")
+                    for dict_term in evaluation_metrics:
                         diff.append('timeout')
-                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} timed out.")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
                 finally:
-                    row = [pid, num_layers, use_decompose] + diff
+                    row = [pid, layer, prb.num_variables, len(prb.linear_constraints), method] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
-                    if num_complete == 2 * len(problems):
+                    if num_complete == len(futures):
                         print(f'Data has been written to {new_path}.csv')

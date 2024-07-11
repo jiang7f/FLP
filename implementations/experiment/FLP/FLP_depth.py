@@ -54,7 +54,7 @@ if __name__ == '__main__':
     set_timeout = 60 * 10 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
-    new_path = script_path.replace('test', 'data')[:-3]
+    new_path = script_path.replace('experiment', 'data')[:-3]
     print(new_path)
     with open(f'{new_path}.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
