@@ -36,11 +36,11 @@ for num_layers in num_layers_range:
     for flp in problems:
         data = [[] for _ in range(len(methods))]
         
-        print(f'问题规模:{flp.m} * {flp.n}')
+        print(f'问题规模:{flp.num_demands} * {flp.num_facilities}')
         print(f'Layers: {num_layers}')
         print(f'v: {flp.num_variables}, c: {len(flp.linear_constraints)}')
 
-        row = [f'{flp.m} * {flp.n}', num_layers, flp.num_variables, len(flp.linear_constraints)]
+        row = [f'{flp.num_demands} * {flp.num_facilities}', num_layers, flp.num_variables, len(flp.linear_constraints)]
         circuit_option.num_layers = num_layers
         metric_data = {metric: [] for metric in evaluation_metrics}
 

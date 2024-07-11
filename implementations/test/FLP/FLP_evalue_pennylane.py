@@ -30,28 +30,25 @@ problems = [
     # KPP(5, [3, 1, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
 ]
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
-feedback = ['depth', 'culled_depth']
-mcx_modes = ['constant', 'linear']
-layers = range(1, 2)
+evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']
+layers = range(1, 6)
 
-headers = ["demands", 'facilities', 'layers', "variables", 'constraints', 'mcx_mode', 'method'] + feedback
+headers = ["demands", 'facilities', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 
-def process_layer(prb, num_layers, mcx_mode, feedback, method):
+def process_layer(prb, num_layers, method):
     prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
         num_layers=num_layers,
         need_draw=False,
         use_decompose=True,
-        circuit_type='qiskit',
-        mcx_mode=mcx_mode,
+        circuit_type='pennylane',
         backend='AerSimulator',
-        feedback=feedback,
     )
-    result = prb.optimize(optimizer_option, circuit_option)
-    return result
+    ARG, in_constraints_probs, best_solution_probs = prb.optimize(optimizer_option, circuit_option)
+    return [ARG, in_constraints_probs, best_solution_probs]
 
 if __name__ == '__main__':
-    set_timeout = 60 * 10 # Set timeout duration
+    set_timeout = 60 * 60 * 12 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('test', 'data')[:-3]
@@ -62,33 +59,34 @@ if __name__ == '__main__':
 
         with ProcessPoolExecutor() as executor:
             futures = []
-            for mcx_mode in mcx_modes:
-                for pid, prb in enumerate(problems):
-                    for idx, method in enumerate(methods):
-                        for layer in layers:
-                            future = executor.submit(process_layer, prb, layer, mcx_mode, feedback, method)
-                        futures.append((future, prb, pid, layer, mcx_mode, feedback, method))
+            for pid, prb in enumerate(problems):
+                for idx, method in enumerate(methods):
+                    for layer in layers:
+                        print(f'{pid}, {layer}, {method} build')
+                        future = executor.submit(process_layer, prb, layer, method)
+                        futures.append((future, prb, pid, layer, method))
 
             start_time = time.perf_counter()
-            for future, prb, pid, layer, mcx_mode, feedback, method in futures:
+            for future, prb, pid, layer, method in futures:
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
                 try:
-                    result = future.result(timeout=remaining_time)
-                    for dict_term in feedback:
-                        diff.append(result[dict_term])
-                    print(f"Task for problem {pid} {method} executed successfully.")
+                    metrics = future.result(timeout=remaining_time)
+                    diff.extend(metrics)
+                    print(f"Task for problem {pid} L={layer} {method} executed successfully.")
                 except MemoryError:
-                    print(f"Task for problem {pid} {method} encountered a MemoryError.")
-                    for dict_term in feedback:
+                    print(f"Task for problem {pid} L={layer} {method} encountered a MemoryError.")
+                    for dict_term in evaluation_metrics:
                         diff.append('memory_error')
                 except TimeoutError:
-                    print(f"Task for problem {pid} {method} timed out.")
-                    for dict_term in feedback:
+                    print(f"Task for problem {pid} L={layer} {method} timed out.")
+                    for dict_term in evaluation_metrics:
                         diff.append('timeout')
+                except Exception as e:
+                    print(f"An error occurred: {e}")
                 finally:
-                    row = [prb.num_demands, prb.num_facilities, layer, prb.num_variables, len(prb.linear_constraints), mcx_mode, method] + diff
+                    row = [prb.num_demands, prb.num_facilities, layer, prb.num_variables, len(prb.linear_constraints), method] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
                     if num_complete == len(futures):

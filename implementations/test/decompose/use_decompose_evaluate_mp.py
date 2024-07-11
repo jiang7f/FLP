@@ -18,32 +18,33 @@ problems = [
     FLP(2, 3, [[10, 2, 3],[1, 20, 3]],[1, 1, 1]),
     FLP(3, 3, [[10, 2, 3],[10, 2, 3],[10, 2, 3]],[1, 1, 1]),
     FLP(3, 4, [[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1],[10, 2, 3, 1]],[1, 1, 1, 1]),
-    # GCP(3, [[0, 1]]), 
-    # GCP(3, [[0, 1], [1, 2]]),
-    # GCP(4, [[0, 1]]),
-    # GCP(4, [[0, 1], [1, 2]]),
-    # GCP(4, [[0, 1], [1, 2], [2, 3]]),
-    # KPP(3, [2, 1], [[[0, 1], 1], [[1, 2], 1]]),
-    # KPP(4, [3, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1]]),
-    # KPP(5, [4, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
-    # KPP(5, [3, 2], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
-    # KPP(5, [3, 1, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
+    GCP(3, [[0, 1]]), 
+    GCP(3, [[0, 1], [1, 2]]),
+    GCP(4, [[0, 1]]),
+    GCP(4, [[0, 1], [1, 2]]),
+    GCP(4, [[0, 1], [1, 2], [2, 3]]),
+    KPP(3, [2, 1], [[[0, 1], 1], [[1, 2], 1]]),
+    KPP(4, [3, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1]]),
+    KPP(5, [4, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
+    KPP(5, [3, 2], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
+    KPP(5, [3, 1, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
 ]
-methods = ['penalty', 'cyclic', 'commute', 'HEA']
-feedback = ['depth', 'culled_depth']
+
 mcx_modes = ['constant', 'linear']
+if_use_decompose = [True, False]
+feedback = ['transpile_time', 'depth', 'culled_depth']
 layers = range(1, 2)
 
-headers = ["demands", 'facilities', 'layers', "variables", 'constraints', 'mcx_mode', 'method'] + feedback
+headers = ["pid", 'num_layers', "use_decompose"] + feedback
 
-def process_layer(prb, num_layers, mcx_mode, feedback, method):
-    prb.set_algorithm_optimization_method(method, 400)
+def process_layer(prb, use_decompose, num_layers, feedback):
+    prb.set_algorithm_optimization_method('commute', 400)
     circuit_option = CircuitOption(
         num_layers=num_layers,
         need_draw=False,
-        use_decompose=True,
+        use_decompose=use_decompose,
         circuit_type='qiskit',
-        mcx_mode=mcx_mode,
+        mcx_mode='constant',
         backend='AerSimulator',
         feedback=feedback,
     )
@@ -51,7 +52,7 @@ def process_layer(prb, num_layers, mcx_mode, feedback, method):
     return result
 
 if __name__ == '__main__':
-    set_timeout = 60 * 10 # Set timeout duration
+    set_timeout = 60 * 60 * 24 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('test', 'data')[:-3]
@@ -62,15 +63,14 @@ if __name__ == '__main__':
 
         with ProcessPoolExecutor() as executor:
             futures = []
-            for mcx_mode in mcx_modes:
+            for use_decompose in if_use_decompose:
                 for pid, prb in enumerate(problems):
-                    for idx, method in enumerate(methods):
-                        for layer in layers:
-                            future = executor.submit(process_layer, prb, layer, mcx_mode, feedback, method)
-                        futures.append((future, prb, pid, layer, mcx_mode, feedback, method))
+                    for num_layers in layers:
+                        future = executor.submit(process_layer, prb, use_decompose, num_layers, feedback)
+                        futures.append((future, pid, use_decompose, num_layers))
 
             start_time = time.perf_counter()
-            for future, prb, pid, layer, mcx_mode, feedback, method in futures:
+            for future, pid, use_decompose, num_layers in futures:
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
@@ -78,18 +78,18 @@ if __name__ == '__main__':
                     result = future.result(timeout=remaining_time)
                     for dict_term in feedback:
                         diff.append(result[dict_term])
-                    print(f"Task for problem {pid} {method} executed successfully.")
+                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} executed successfully.")
                 except MemoryError:
-                    print(f"Task for problem {pid} {method} encountered a MemoryError.")
                     for dict_term in feedback:
                         diff.append('memory_error')
+                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} encountered a MemoryError.")
                 except TimeoutError:
-                    print(f"Task for problem {pid} {method} timed out.")
                     for dict_term in feedback:
                         diff.append('timeout')
+                    print(f"Task for problem {pid}, use_decompose {use_decompose}, num_layers {num_layers} timed out.")
                 finally:
-                    row = [prb.num_demands, prb.num_facilities, layer, prb.num_variables, len(prb.linear_constraints), mcx_mode, method] + diff
+                    row = [pid, num_layers, use_decompose] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
-                    if num_complete == len(futures):
+                    if num_complete == 2 * len(problems):
                         print(f'Data has been written to {new_path}.csv')

@@ -1,3 +1,4 @@
+# should_print = True
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.models import CircuitOption, OptimizerOption
 optimizer_option = OptimizerOption(

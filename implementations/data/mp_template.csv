@@ -1,0 +1,7 @@
+demands,facilities,layers,variables,constraints,mcx_mode,method,depth,culled_depth
+1,2,1,6,3,constant,penalty,25,8
+1,2,1,6,3,constant,cyclic,41,14
+1,2,1,6,3,constant,commute,136,45
+1,2,1,6,3,constant,HEA,13,6
+2,2,1,10,6,constant,penalty,34,12
+2,2,1,10,6,constant,cyclic

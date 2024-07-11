@@ -1,4 +1,4 @@
-from quBLP import ConstrainedBinaryOptimization
+from quBLP.models import ConstrainedBinaryOptimization
 from pennylane import numpy as np
 problem = ConstrainedBinaryOptimization()
 problem.add_binary_variables('x', [5])

@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 import numpy as np
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization
@@ -35,7 +36,7 @@ class SharedVariables(ConstrainedBinaryOptimization):
                 matrix[i, i] = 1
                 matrix[i, self.num_qubits - 1 - i] = 1
             self._linear_constraints = matrix
-            print(self._linear_constraints)
+            iprint(self._linear_constraints)
         return self._linear_constraints
     
     def get_feasible_solution(self):

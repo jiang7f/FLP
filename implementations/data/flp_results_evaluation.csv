@@ -1,2 +1,0 @@
-Problem_Size,Layers,Variables,Constraints,penalty_ARG,cyclic_ARG,commute_ARG,HEA_ARG,penalty_in_constraints_probs,cyclic_in_constraints_probs,commute_in_constraints_probs,HEA_in_constraints_probs,penalty_best_solution_probs,cyclic_best_solution_probs,commute_best_solution_probs,HEA_best_solution_probs
-1 * 2,1,6,3,750.875,512.919921875,5.0,3.0,0.115234375,0.2119140625,1.0,1.0,0.08203125,0.0009765625,0,1.0

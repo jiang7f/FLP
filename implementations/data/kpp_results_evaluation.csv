@@ -1,3 +1,0 @@
-Problem_Size,Layers,Variables,Constraints,penalty_ARG,cyclic_ARG,commute_ARG,HEA_ARG,penalty_in_constraints_probs,cyclic_in_constraints_probs,commute_in_constraints_probs,HEA_in_constraints_probs,penalty_best_solution_probs,cyclic_best_solution_probs,commute_best_solution_probs,HEA_best_solution_probs
-"3, [2, 1], [[0, 1], [1, 2]]",1,6,5,-664.947265625,0.0576171875,0.0234375,-0.5,1.0,0,-0.5,1.0,0,-1.2802734375,0.998046875,0
-"3, [2, 1], [[0, 1], [1, 2]]",2,6,5,-349.08544921875,0.2841796875,0.1123046875,-380.8427734375,0.048828125,0.0078125,-0.00048828125,1.0,0.9990234375,-75.064453125,0.859375,0

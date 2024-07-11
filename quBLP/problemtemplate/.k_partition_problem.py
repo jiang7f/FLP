@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
@@ -49,7 +50,7 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
                     matrix[n + j, self.var_to_idex(self.X[i][j])] = 1
                 matrix[n + j, total_columns - 1] = n / k
             self._linear_constraints = matrix
-            print(self._linear_constraints)
+            iprint(self._linear_constraints)
         return self._linear_constraints
 
     def get_feasible_solution(self):

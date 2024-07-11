@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 import numpy as np
 # from pennylane import numpy as np
 from tqdm import tqdm
@@ -55,14 +56,14 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
             if abs(prev_cost - cost) < early_stopping_threshold:
                 consecutive_no_improvement += 1
                 if consecutive_no_improvement >= num_consecutive_iter:  # consecutive iterations
-                    print("Early stopping: Loss change is below threshold.")
+                    iprint("Early stopping: Loss change is below threshold.")
                     break
             else:
                 consecutive_no_improvement = 0
                 prev_cost = cost
     #+
-    print('====')
-    print(costs_list)
+    iprint('====')
+    iprint(costs_list)
     import matplotlib.pyplot as plt 
     plt.figure(figsize=(10, 5))  
     plt.plot(range(len(costs_list)), costs_list, marker='o')  

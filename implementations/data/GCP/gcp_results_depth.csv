@@ -1,4 +1,4 @@
-Problem_Size,Variables,Constraints,Layers,MCX_Mode,penalty_depth,cyclic_depth,commute_depth,HEA_depth,penalty_culled_depth,cyclic_culled_depth,commute_culled_depth,HEA_culled_depth
+Problem_Size,Variables,Constraints,Layers,mcx_mode,penalty_depth,cyclic_depth,commute_depth,HEA_depth,penalty_culled_depth,cyclic_culled_depth,commute_culled_depth,HEA_culled_depth
 "3, [[0, 1]]",12,6,1,constant,61,78,502,19,28,34,172,12
 "3, [[0, 1], [1, 2]]",15,9,1,constant,73,90,1024,22,34,40,398,15
 "4, [[0, 1]]",20,8,1,constant,159,180,831,27,93,99,311,20

@@ -12,12 +12,12 @@ circuit_option = CircuitOption(
     need_draw=False,
     use_decompose=True,
     circuit_type='qiskit',
-    mcx_mode='constant',
+    mcx_mode='linear',
     backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
     feedback=feedback,
 )
 # methods = ['penalty', 'cyclic', 'commute', 'HEA']
-problems = [SV(20, i) for i in range(7, 9)]
+problems = [SV(40, i) for i in range(2, 21, 2)]
 
 csv_data = []
 headers = ['num_qubits', 'num_shared_variables', 'Layers', 'num_constraint', 'depth', 'culled_depth']
@@ -38,7 +38,7 @@ for sv in problems:
             row.extend([data[l - 1][dict_term] for l in layers])
         csv_data.append(row)
 
-csv_filename = '../../data/shared_constant_depth.csv'
+csv_filename = '../../data/SV/shared_linear_depth.csv'
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)

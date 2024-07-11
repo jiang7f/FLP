@@ -1,4 +1,5 @@
 ## This file defines a problem of binary constraint optimization 
+from quBLP.utils import iprint
 import numpy as np
 import itertools
 from typing import Iterable, List, Callable,  Union
@@ -145,7 +146,7 @@ class ConstrainedBinaryOptimization(Model):
             add_binary_variables('x', [2, 2]): [['x_0_0', 'x_0_1'], ['x_1_0', 'x_1_1']]
         """
         if name in self.variable_name_set:
-            print(f'varible {name} already exist')
+            iprint(f'varible {name} already exist')
             return None
         self.variable_name_set.add(name)
         def gnrt_variables(prefix, shape):
@@ -174,7 +175,7 @@ class ConstrainedBinaryOptimization(Model):
         """
         var = Variable(name)
         if name in self.variables_idx:
-            print(f'varible {name} already exist')
+            iprint(f'varible {name} already exist')
             return None
         self.variables.append(var)
         self.variables_idx[name] = self.current_var_idx
@@ -197,7 +198,7 @@ class ConstrainedBinaryOptimization(Model):
                     variable = term
                     coefficients[self.variables_idx[variable]] = sign
             coefficients[-1] = int(expr_or_func.split('==')[1])
-            print(coefficients)
+            (coefficients)
             self.add_linear_objective(coefficients)
         elif callable(expr_or_func):
             self.objective_func = expr_or_func
@@ -234,7 +235,7 @@ class ConstrainedBinaryOptimization(Model):
                    e.g., '2*x_0 + 3*x_1 + 3*x_2 == 1'.
         """
         ## extract the coefficients and the variables from the expression like 2*x_0 + 3*x_1 + 3*x_2 == 1
-        print(expr)
+        iprint(expr)
         coefficients = np.zeros(len(self.variables) + 1)
         ## parse the expression:2*x_0 + 3*x_1 + 3*x_2 == 1
         for sign,term in split_expr(expr.split('==')[0]):
@@ -246,7 +247,7 @@ class ConstrainedBinaryOptimization(Model):
                 variable = term
                 coefficients[self.variables_idx[variable]] = sign
         coefficients[-1] = int(expr.split('==')[1])
-        print(coefficients)
+        iprint(coefficients)
         self.add_linear_constraints(coefficients)
         ## get the coefficients and the variables
 
@@ -301,8 +302,8 @@ class ConstrainedBinaryOptimization(Model):
         circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
         circuit_option.Hd_bits_list  = self.get_driver_bitstr
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
-        print(f'fsb_state: {circuit_option.feasiable_state}') #-
-        print(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-
+        iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
+        iprint(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-
         objective_func_map = {
             'penalty': self.objective_penalty,
             'cyclic': self.objective_cyclic,
@@ -323,7 +324,7 @@ class ConstrainedBinaryOptimization(Model):
         max_prob_solution = collapse_state[maxprobidex]
         cost = circuit_option.objective_func(max_prob_solution)
         # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
-        # print(dict(zip(collapse_state_str, probs)))
+        # iprint(dict(zip(collapse_state_str, probs)))
 
         # 算最优解和最优解的cost
         state_0 = [int(j) for j in list(bin(0)[2:].zfill(len(self.variables)))]
@@ -337,26 +338,26 @@ class ConstrainedBinaryOptimization(Model):
                 best_solution_list = [bitstr]
             elif record_value == best_cost:
                 best_solution_list.append(bitstr)
-        print(f'best_cost: {best_cost}')
-        print(f'best_solution: {best_solution_list}')
+        iprint(f'best_cost: {best_cost}')
+        iprint(f'best_solution: {best_solution_list}')
         mean_cost = 0
         for c, p in zip(collapse_state, probs):
             if p >= 1e-3:
-                print(f'{c}: {self.objective_penalty(c)} - {p}')
+                iprint(f'{c}: {self.objective_penalty(c)} - {p}')
             mean_cost += self.objective_penalty(c) * p
-        print(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+        iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
         best_solution_probs = sum([self.find_state_probability(best_solution) for best_solution in best_solution_list])
         best_solution_probs *= 100
-        print(f'best_solution_probs: {best_solution_probs}')
-        print(f"mean_cost: {mean_cost}")
+        iprint(f'best_solution_probs: {best_solution_probs}')
+        iprint(f"mean_cost: {mean_cost}")
         in_constraints_probs = 0
         for cs, pr in zip(self.collapse_state, self.probs):
             if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
                 in_constraints_probs += pr
         in_constraints_probs *= 100
-        print(f'in_constraint_probs: {in_constraints_probs}')
-        ARG = abs(mean_cost - best_cost / best_cost)
-        print(f'ARG: {ARG}')
+        iprint(f'in_constraint_probs: {in_constraints_probs}')
+        ARG = abs((mean_cost - best_cost) / best_cost)
+        iprint(f'ARG: {ARG}')
         return ARG, in_constraints_probs, best_solution_probs
 
         

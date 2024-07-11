@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 from qiskit.circuit import QuantumCircuit
 from qiskit.converters import dag_to_circuit, circuit_to_dag
 from qiskit.dagcircuit import DAGOpNode
@@ -58,8 +59,9 @@ class Feature:
                 try:
                     qc_empty.data.append(qc_data)
                 except qiskit.circuit.exceptions.CircuitError as e:
-                    print(1)
-        # print(qc_empty.draw())
+                    iprint(1)
+                    pass
+        # iprint(qc_empty.draw())
         return qc_empty.depth()
 
 if __name__ == '__main__':

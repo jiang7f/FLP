@@ -15,7 +15,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         z_{i j}, y_{i j}, x_j \in\{0,1\} 
 
     """
-    def __init__(self, num_demand: int, num_facilities: int, c: Iterable[Iterable],f: Iterable, fastsolve=True) -> None:
+    def __init__(self, num_demands: int, num_facilities: int, c: Iterable[Iterable],f: Iterable, fastsolve=True) -> None:
         """ a facility location problem
 
         Args:
@@ -28,21 +28,21 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         #* 设定优化方向
         self.set_optimization_direction('min')
         # 需求点个数
-        self.m = num_demand
+        self.num_demands = num_demands
         # 设施点个数
-        self.n = num_facilities
+        self.num_facilities = num_facilities
         # cij需求i到设施j的成本
         self.c = c 
         # fj设施j的建设成本
         self.f = f
-        self.num_variables = num_facilities + 2 * num_facilities * num_demand
+        self.num_variables = num_facilities + 2 * num_facilities * num_demands
         self.X = self.add_binary_variables('x', [num_facilities])
-        self.Y = self.add_binary_variables('y', [num_demand, num_facilities])
-        self.Z = self.add_binary_variables('z', [num_demand, num_facilities])
+        self.Y = self.add_binary_variables('y', [num_demands, num_facilities])
+        self.Z = self.add_binary_variables('z', [num_demands, num_facilities])
 
-        self.objective_penalty = self.get_objective_func('penalty')
-        self.objective_cyclic = self.get_objective_func('cyclic')
-        self.objective_commute = self.get_objective_func('commute')
+        self.objective_penalty = self.get_objective_func_penalty
+        self.objective_cyclic = self.get_objective_func_cyclic
+        self.objective_commute = self.get_objective_func_commute
         self.feasible_solution = self.get_feasible_solution()
         #* 直接加目标函数表达式
         self.add_linear_objective(np.multiply(list(itertools.chain(f, *c)), self.cost_dir))
@@ -51,8 +51,8 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
     @property
     def linear_constraints(self):
         if self._linear_constraints is None:
-            n = self.n
-            m = self.m
+            n = self.num_facilities
+            m = self.num_demands
             total_rows = n * m + m
             total_columns = self.num_variables + 1
             matrix = np.zeros((total_rows, total_columns))
@@ -68,7 +68,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         return self._linear_constraints
     
     def fast_solve_driver_bitstr(self):
-        n, m  = self.n,self.m
+        n, m  = self.num_facilities,self.num_demands
         # 自由变量个数
         row = n * m - m + n
         column = 2 * m * n + n
@@ -106,40 +106,40 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         """
         # for j in range(self.n):
         self.X[0].set_value(1)
-        for i in range(self.m):
+        for i in range(self.num_demands):
             self.Y[i][0].set_value(1)
         # for i in range(self.m):
         #     for j in range(self.n):
         #         self.Z[i][j].set_value(-self.Y[i][j].x + self.X[j].x)
         return [x.x for x in self.variables]
 
-    def get_objective_func(self, algorithm_optimization_method):
-        def objective(variables:Iterable):
-            cost = 0
-            for i in range(self.m):
-                for j in range(self.n):
-                    cost += self.c[i][j] * variables[self.var_to_idex(self.Y[i][j])]
-            for j in range(self.n):
-                cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
-            # commute 只需要目标函数两项
-            if algorithm_optimization_method == 'commute':
-                return self.cost_dir * cost
-            for i in range(self.m):
-                for j in range(self.n):
-                    cost += self.cost_dir * self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
-            # cyclic 多包含一项非∑=x约束
-            if algorithm_optimization_method == 'cyclic':
-                return self.cost_dir * cost
-            for i in range(self.m):
-                t = 0
-                for j in range(self.n):
-                    t += variables[self.var_to_idex(self.Y[i][j])]
-                cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
-            # penalty 所有约束都惩罚施加
-            if algorithm_optimization_method == 'penalty':
-                return self.cost_dir * cost
-        return objective
+    def get_objective_func_commute(self, variables:Iterable):
+        cost = 0
+        for i in range(self.num_demands):
+            for j in range(self.num_facilities):
+                cost += self.c[i][j] * variables[self.var_to_idex(self.Y[i][j])]
+        for j in range(self.num_facilities):
+            cost += self.f[j] * variables[self.var_to_idex(self.X[j])]
+        # commute 只需要目标函数两项
+        return self.cost_dir * cost
     
+    def get_objective_func_cyclic(self, variables:Iterable):
+        cost = 0
+        for i in range(self.num_demands):
+            for j in range(self.num_facilities):
+                cost += self.cost_dir * self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
+        # cyclic 多包含一项非∑=x约束
+        return self.get_objective_func_commute(variables) + self.cost_dir * cost
+
+    def get_objective_func_penalty(self, variables:Iterable):
+        cost = 0
+        for i in range(self.num_demands):
+            t = 0
+            for j in range(self.num_facilities):
+                t += variables[self.var_to_idex(self.Y[i][j])]
+            cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
+        # penalty 所有约束都惩罚施加
+        return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
     
 
         

@@ -19,7 +19,7 @@ problems = [
 ]
 
 csv_data = []
-headers = ['Problem_Size', 'Variables', 'Constraints', 'Layers', 'MCX_Mode']
+headers = ['Problem_Size', 'Variables', 'Constraints', 'Layers', 'mcx_mode']
 for dict_term in feedback:
     for method in methods:
         headers.extend([f'{method}_{dict_term}'])

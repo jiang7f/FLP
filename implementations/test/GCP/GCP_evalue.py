@@ -18,8 +18,8 @@ methods = ['penalty', 'cyclic', 'commute', 'HEA']
 problems = [
     GCP(3,[[0, 1]]), 
     GCP(3,[[0, 1],[1, 2]]),
-    GCP(4,[[0, 1]]),
-    GCP(4,[[0, 1],[1, 2]]),
+    # GCP(4,[[0, 1]]),
+    # GCP(4,[[0, 1],[1, 2]]),
     # GCP(4,[[0, 1],[1, 2],[2,3]])
 ]
 
@@ -32,7 +32,7 @@ for metric in evaluation_metrics:
         headers.append(f'{method}_{metric}')
 
 csv_data.append(headers)
-num_layers_range = range(1, 5)
+num_layers_range = range(1, 6)
 for num_layers in num_layers_range:
     for gcp in problems:
         data = [[] for _ in range(len(methods))]

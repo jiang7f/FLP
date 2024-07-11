@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 from time import perf_counter
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit_aer import Aer
@@ -133,9 +134,9 @@ def decompose_unitary(t, bit_string):
     return qc.decompose()
 
 if __name__ == '__main__':
-    def set_print_form(suppress=True, precision=4, linewidth=300):
     # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
-        np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
+    def set_print_form(suppress=True, precision=4, linewidth=300):
+        np.set_iprintoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
     set_print_form()
     import numpy as np
     def get_decompose_time(bit_string=[0, 0, 1, 1], f=None):
@@ -145,20 +146,20 @@ if __name__ == '__main__':
         num_qubits = len(bit_string)
         time_start = perf_counter()
         qc = get_driver_component(num_qubits, t, bit_string, False)
-        # print(bit_string)
-        # print(get_simulate_unitary(t, bit_string))
-        # print(get_circ_unitary(qc))
-        # print(np.allclose(get_circ_unitary(qc), get_simulate_unitary(t, bit_string)))
-        # print(qc.draw())
+        # iprint(bit_string)
+        # iprint(get_simulate_unitary(t, bit_string))
+        # iprint(get_circ_unitary(qc))
+        # iprint(np.allclose(get_circ_unitary(qc), get_simulate_unitary(t, bit_string)))
+        # iprint(qc.draw())
         # exit()
         time_end = perf_counter()
         time_init = time_end - time_start
         time_dict['ours'] = time_init
-        print(f'decompose time: {time_end - time_start}')
+        iprint(f'decompose time: {time_end - time_start}')
         depth = qc.depth()
         num_gates = len(qc.data)
-        print(f'depth: {depth}')
-        print(f'num_gates: {num_gates}')
+        iprint(f'depth: {depth}')
+        iprint(f'num_gates: {num_gates}')
         write_string += f'{str(num_qubits)}, {str(num_qubits)}, {str(time_init)}, {str(depth)}, {str(num_gates)},\n'
 
         # decompose into multi-qubit gates
@@ -172,20 +173,20 @@ if __name__ == '__main__':
             depth = transpile_circuit.depth()
             num_nonlocal_gates = transpile_circuit.num_nonlocal_gates()
             time_decompose += time_init
-            print(f'max_control_qubits: {i}')
-            print(f'depth: {depth}')
-            print(f'num_nonlocal_gates: {num_nonlocal_gates}')
-            print(f'time_decompose: {time_decompose}')
+            iprint(f'max_control_qubits: {i}')
+            iprint(f'depth: {depth}')
+            iprint(f'num_nonlocal_gates: {num_nonlocal_gates}')
+            iprint(f'time_decompose: {time_decompose}')
             write_string += f'{str(num_qubits)}, {str(i)}, {str(time_decompose)}, {str(depth)}, {str(num_gates)},\n'
         
         time_start = perf_counter()
         uqc = decompose_unitary(t, bit_string)
         time_end = perf_counter()
-        print(f'unitary_time: {time_end - time_start}')
+        iprint(f'unitary_time: {time_end - time_start}')
         udepth = uqc.depth()
         unum_gates = len(uqc.count_ops())
-        print(f'udepth: {udepth}')
-        print(f'unum_gates: {unum_gates}') #?? it's wrong
+        iprint(f'udepth: {udepth}')
+        iprint(f'unum_gates: {unum_gates}') #?? it's wrong
         time_dict['unitary'] = time_end - time_start
         write_string += f'{str(num_qubits)}, {str(2)}, {str(time_dict["unitary"])}, {str(udepth)}, {str(unum_gates)},\n'
         if f:
@@ -197,10 +198,10 @@ if __name__ == '__main__':
         for i in range(3, 9):
             bit_string = np.random.randint(2, size=i)
             # bit_string = [0, 1, 0, 1, 1, 1, 1]
-            print(f'num_qubits: {i}')
+            iprint(f'num_qubits: {i}')
             time = get_decompose_time(bit_string, f)
             time_list.append(time)
-            print('--------------------')
+            iprint('--------------------')
     import pandas as pd
     df = pd.DataFrame(time_list)
     import matplotlib.pyplot as plt

@@ -43,11 +43,11 @@ for flp in problems:
             circuit_option.num_layers = num_layers
             data[idx].append(flp.optimize(optimizer_option, circuit_option))
     
-    print(f'问题规模:{flp.m} * {flp.n}')
+    print(f'问题规模:{flp.num_demands} * {flp.num_facilities}')
     print(f'v: {flp.num_variables}, c: {len(flp.linear_constraints)}')
 
     for num_layers in layers:
-        row = [f'{flp.m}, {flp.n}', num_layers, flp.num_variables, len(flp.linear_constraints)]
+        row = [f'{flp.num_demands}, {flp.num_facilities}', num_layers, flp.num_variables, len(flp.linear_constraints)]
         for dict_term in feedback:
             for idx, method in enumerate(methods):
                 row.extend([data[idx][l - 1][dict_term] for l in layers])

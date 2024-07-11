@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 import pennylane as qml
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Parameter
@@ -29,7 +30,7 @@ class QiskitCircuit:
         self.num_layers = circuit_option.num_layers
 
         #+ will to delete
-        print(circuit_option.backend)
+        iprint(circuit_option.backend)
         
         if circuit_option.backend == 'FakeQuebec':
             self.backend = FakeQuebec() # 新版 真机
@@ -56,7 +57,7 @@ class QiskitCircuit:
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
-            # print(final_qc.draw())
+            # iprint(final_qc.draw())
             feature = Feature(final_qc, self.backend)
             self.width = feature.width
             self.depth = feature.depth
@@ -108,7 +109,7 @@ class QiskitCircuit:
             for i in range(n):
                 j = (i + 1) % n
                 Hd += (add_in_target(n, i, gate_x) @ add_in_target(n, j, gate_x) + add_in_target(n, i, gate_y) @ add_in_target(n, j, gate_y))
-            return -Hd
+            return -Hd 
 
         def Ho_decompose(qc:QuantumCircuit, objective_func_term_list, param):
             for n_power_term_list in objective_func_term_list:
@@ -250,6 +251,7 @@ class QiskitCircuit:
                     # constraints_for_cyclic --> 驱动哈密顿量
                     for cyclic_mi in constraints_for_cyclic:
                         nzlist = np.nonzero(cyclic_mi[:-1])[0]
+                        nzlist = [int(x) for x in nzlist]
                         cyclic_Hd_i = gnrt_cyclic_Hd(len(nzlist))
                         qc.unitary(expm(-1j * Hd_params[layer] * cyclic_Hd_i), nzlist[::-1])
                 for i in others_qubit_set:
@@ -264,9 +266,11 @@ class QiskitCircuit:
             return transpiled_qc
         
         def circuit_commute(params=None):
-            print("'circuit_commute' function ran once") # wait be delete
+            iprint("'circuit_commute' function ran once") # wait be delete
             mcx_mode = self.circuit_option.mcx_mode
-            if mcx_mode == 'constant':
+            if self.circuit_option.use_decompose == False:
+                qc = QuantumCircuit(num_qubits, num_qubits)
+            elif mcx_mode == 'constant':
                 qc = QuantumCircuit(num_qubits + 2, num_qubits)
                 ancilla = [num_qubits, num_qubits + 1]
             elif mcx_mode == 'linear':
@@ -303,7 +307,6 @@ class QiskitCircuit:
                         driver_component_qiskit(qc, nonzero_indices, ancilla, hdi_string, Hd_params[layer], mcx_mode)
                     else:
                         qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
-                    qc.measure(range(num_qubits), range(num_qubits)[::-1])
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
@@ -366,15 +369,15 @@ class QiskitCircuit:
         if self.circuit_option.use_decompose:
             qc = self.inference_circuit
             if self.circuit_option.algorithm_optimization_method == 'HEA':
-                print(qc.assign_parameters(np.zeros(self.num_layers * self.num_qubits * 3)).draw())
+                iprint(qc.assign_parameters(np.zeros(self.num_layers * self.num_qubits * 3)).draw())
             else:
-                print(qc.assign_parameters(np.zeros(self.num_layers * 2)).draw())
+                iprint(qc.assign_parameters(np.zeros(self.num_layers * 2)).draw())
         else:
             if self.circuit_option.algorithm_optimization_method == 'HEA':
                params = np.zeros(self.num_layers * self.num_qubits * 3)
             else:
                params = np.zeros(self.num_layers * 2)
-            print(self.inference_circuit(params).draw())
+            iprint(self.inference_circuit(params).draw())
 
 class PennylaneCircuit:
     def __init__(self, circuit_option: CircuitOption):
@@ -618,6 +621,6 @@ class PennylaneCircuit:
         from pennylane.drawer import draw
         circuit_drawer = draw(self.inference_circuit)
         if self.circuit_option.algorithm_optimization_method == 'HEA':
-            print(circuit_drawer(np.zeros(self.num_layers * self.num_qubits * 3)))
+            iprint(circuit_drawer(np.zeros(self.num_layers * self.num_qubits * 3)))
         else:
-            print(circuit_drawer(np.zeros(self.num_layers * 2)))
+            iprint(circuit_drawer(np.zeros(self.num_layers * 2)))

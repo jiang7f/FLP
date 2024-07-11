@@ -1,3 +1,4 @@
+from quBLP.utils import iprint
 import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
@@ -14,9 +15,9 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
         self.num_pairs = len(pairs_connected)
         self.num_variables = self.num_points * self.num_block
         self.X = self.add_binary_variables('x', [self.num_points, self.num_block])
-        self.objective_penalty = self.get_objective_func('penalty')
-        self.objective_cyclic = self.get_objective_func('cyclic')
-        self.objective_commute = self.get_objective_func('commute')
+        self.objective_penalty = self.get_objective_func_penalty
+        self.objective_cyclic = self.get_objective_func_cyclic
+        self.objective_commute = self.get_objective_func_commute
         self.feasible_solution = self.get_feasible_solution()
         self.add_kpp_objective()
         pass
@@ -48,7 +49,7 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
                     matrix[n + j, self.var_to_idex(self.X[i][j])] = 1
                 matrix[n + j, total_columns - 1] = self.block_allot[j]
             self._linear_constraints = matrix
-            print(self._linear_constraints)
+            iprint(self._linear_constraints)
         return self._linear_constraints
 
     def get_feasible_solution(self):
@@ -68,34 +69,34 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
         #     t += 1
         return [x.x for x in self.variables]
     
-    def get_objective_func(self, algorithm_optimization_method):
-        n = self.num_points
-        k = self.num_block
-        def objective(variables:Iterable):
-            cost = 0
-            for pair, w in self.pairs_connected:
-                u = pair[0]
-                v = pair[1]
-                t = 0
-                for j in range(k):
-                    x_uj = variables[self.var_to_idex(self.X[u][j])]
-                    x_vj = variables[self.var_to_idex(self.X[v][j])]
-                    t += x_uj * x_vj
-                cost += w * (1 - t)
-            if algorithm_optimization_method == 'commute':
-                return self.cost_dir * cost
-            for j in range(k):
-                t = 0
-                for i in range(n):
-                    t += variables[self.var_to_idex(self.X[i][j])]
-                cost += self.cost_dir * self.penalty_lambda * (t - self.block_allot[j])**2
-            if algorithm_optimization_method == 'cyclic':
-                return self.cost_dir * cost
-            for i in range(n):
-                t = 0
-                for j in range(k):
-                    t += variables[self.var_to_idex(self.X[i][j])]
-                cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
-            if algorithm_optimization_method == 'penalty':
-                return self.cost_dir * cost
-        return objective
+    def get_objective_func_commute(self, variables:Iterable):
+        cost = 0
+        for pair, w in self.pairs_connected:
+            u = pair[0]
+            v = pair[1]
+            t = 0
+            for j in range(self.num_block):
+                x_uj = variables[self.var_to_idex(self.X[u][j])]
+                x_vj = variables[self.var_to_idex(self.X[v][j])]
+                t += x_uj * x_vj
+            cost += w * (1 - t)
+        return self.cost_dir * cost
+    
+    def get_objective_func_cyclic(self, variables:Iterable):
+        cost = 0
+        for j in range(self.num_block):
+            t = 0
+            for i in range(self.num_points):
+                t += variables[self.var_to_idex(self.X[i][j])]
+            cost += self.cost_dir * self.penalty_lambda * (t - self.block_allot[j])**2
+        return self.get_objective_func_commute(variables) + self.cost_dir * cost
+
+    def get_objective_func_penalty(self, variables:Iterable):
+        cost = 0
+        for i in range(self.num_points):
+            t = 0
+            for j in range(self.num_block):
+                t += variables[self.var_to_idex(self.X[i][j])]
+            cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
+        return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
+
