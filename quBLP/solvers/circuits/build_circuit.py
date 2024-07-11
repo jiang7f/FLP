@@ -19,7 +19,19 @@ from time import perf_counter
 from itertools import combinations
 from ...analysis import Feature
 from ...utils import QuickFeedbackException
+from qiskit.qasm2 import dump
 
+
+def calculate_fidelity_by_counts(counts, target_counts) -> float:
+    """
+    计算两个计数分布之间的相似度
+    """
+    probvectordiff = []
+    for key in set(counts.keys()).union(set((target_counts.keys()))):
+        probvectordiff.append(abs(counts.get(key, 0) - target_counts.get(key, 0)) / max(counts.get(key, 0), target_counts.get(key, 0)))
+    return 1 - sum(probvectordiff) / len(probvectordiff)
+    
+    
 class QiskitCircuit:
     def __init__(self, circuit_option: CircuitOption):
         self.circuit_option = circuit_option
@@ -38,23 +50,35 @@ class QiskitCircuit:
         elif circuit_option.backend == 'FakeAlmadenV2':  
             self.backend = FakeAlmadenV2() # 旧版 真机
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
-        elif circuit_option.backend == 'AerSimulator':
+        # elif circuit_option.backend == 'AerSimulator':
+        else:
             self.backend = AerSimulator()    # 仿真
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])        
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 's','sdg', 'x','y','h','z','mcx','cz','sx','sy','t','tdg','swap','rx','ry'])      
             # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
-    def inference(self, params, shots=1024):
+    def inference(self, params, shots=10000):
         feedback = self.circuit_option.feedback
         if self.circuit_option.use_decompose:
             final_qc = self.inference_circuit.assign_parameters(params) # 已使用pass_manager编译过的理论电路 (只缺参数)
         else:
             final_qc = self.inference_circuit(params)
+        with open("testqc.qasm", "w") as f:
+            dump(final_qc, f)
         if feedback is None or feedback == [] or 'run_time' in feedback:
             start = perf_counter()
             options = {"simulator": {"seed_simulator": 42}}
-            sampler = Sampler(backend=self.backend, options=options)
-            result = sampler.run([final_qc],shots=shots).result()
-            end = perf_counter()
+            if self.circuit_option.backend == 'AerSimulator':
+                sampler = Sampler(backend=self.backend, options=options)
+                result = sampler.run([final_qc],shots=shots).result()
+                end = perf_counter()
+                pub_result = result[0]
+                counts = pub_result.data.c.get_counts()
+            elif self.circuit_option.backend == 'ddsim':
+                from mqt import ddsim
+                backend = ddsim.DDSIMProvider().get_backend("qasm_simulator")
+                job = backend.run(final_qc, shots=shots)
+                counts = job.result().get_counts(final_qc)
+                end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
             # iprint(final_qc.draw())
@@ -67,10 +91,9 @@ class QiskitCircuit:
             self.latency = feature.latency_all()
             self.culled_depth = feature.get_depth_without_one_qubit_gate()
             feedback_data = {feedback_term: getattr(self, feedback_term, None) for feedback_term in feedback}
-            raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}",
-                                        data=feedback_data)
-        pub_result = result[0]
-        counts = pub_result.data.c.get_counts()
+            raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}", data=feedback_data)
+        
+        # print(calculate_fidelity_by_counts(counts, ddsimcounts))
         collapse_state = [[int(char) for char in state] for state in counts.keys()]
         total_count = sum(counts.values())
         probs = [count / total_count for count in counts.values()]
@@ -277,7 +300,9 @@ class QiskitCircuit:
                 qc = QuantumCircuit(2 * num_qubits, num_qubits)
                 ancilla = list(range(num_qubits, 2 * num_qubits))
             else:
-                raise ValueError("mcx_mode should be 'constant' or 'linear'")
+                qc = QuantumCircuit(num_qubits+2, num_qubits)
+                ancilla = list(range(num_qubits,num_qubits+2))
+                # raise ValueError("mcx_mode should be 'constant' or 'linear'")
             if use_decompose:
                 Ho_params = [Parameter(f'Ho_params[{i}]') for i in range(num_layers)]
                 Hd_params = [Parameter(f'Hd_params[{i}]') for i in range(num_layers)]
@@ -310,7 +335,7 @@ class QiskitCircuit:
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
-            transpiled_qc = self.pass_manager.run(qc.decompose(reps=3))
+            transpiled_qc = self.pass_manager.run(qc)
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = end - start
