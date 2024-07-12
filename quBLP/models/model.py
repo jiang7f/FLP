@@ -326,6 +326,7 @@ class ConstrainedBinaryOptimization(Model):
         # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
         # iprint(dict(zip(collapse_state_str, probs)))
 
+        # groubi
         # 算最优解和最优解的cost
         state_0 = [int(j) for j in list(bin(0)[2:].zfill(len(self.variables)))]
         best_cost = self.objective_penalty(state_0)

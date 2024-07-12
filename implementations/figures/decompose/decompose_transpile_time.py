@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -73,8 +74,10 @@ def plot_results(respath):
     axes.grid(axis="y", color="gray", linestyle="--", linewidth=1)
     axes.set_xlabel("# problem")
     axes.set_ylabel(bar_key)
-    
     axes.legend(frameon=False, bbox_to_anchor=(0.5, 1.05), loc='lower center', ncol=2)
-    fig.savefig(f"../{respath}.svg", dpi=600, format="svg", bbox_inches="tight")
+
+    script_path = os.path.abspath(__file__)
+    new_path = script_path[:-3]
+    fig.savefig(f"{new_path}.svg", dpi=600, format="svg", bbox_inches="tight")
 
 plot_results('decompose/mp_evaluate')

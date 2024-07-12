@@ -70,7 +70,6 @@ class QiskitCircuit:
             if self.circuit_option.backend == 'AerSimulator':
                 sampler = Sampler(backend=self.backend, options=options)
                 result = sampler.run([final_qc],shots=shots).result()
-                end = perf_counter()
                 pub_result = result[0]
                 counts = pub_result.data.c.get_counts()
             elif self.circuit_option.backend == 'ddsim':
@@ -78,7 +77,7 @@ class QiskitCircuit:
                 backend = ddsim.DDSIMProvider().get_backend("qasm_simulator")
                 job = backend.run(final_qc, shots=shots)
                 counts = job.result().get_counts(final_qc)
-                end = perf_counter()
+            end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
             # iprint(final_qc.draw())
@@ -91,9 +90,8 @@ class QiskitCircuit:
             self.latency = feature.latency_all()
             self.culled_depth = feature.get_depth_without_one_qubit_gate()
             feedback_data = {feedback_term: getattr(self, feedback_term, None) for feedback_term in feedback}
-            raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}", data=feedback_data)
-        
-        # print(calculate_fidelity_by_counts(counts, ddsimcounts))
+            raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}",
+                                         data=feedback_data)
         collapse_state = [[int(char) for char in state] for state in counts.keys()]
         total_count = sum(counts.values())
         probs = [count / total_count for count in counts.values()]
@@ -300,9 +298,10 @@ class QiskitCircuit:
                 qc = QuantumCircuit(2 * num_qubits, num_qubits)
                 ancilla = list(range(num_qubits, 2 * num_qubits))
             else:
-                qc = QuantumCircuit(num_qubits+2, num_qubits)
-                ancilla = list(range(num_qubits,num_qubits+2))
+                qc = QuantumCircuit(num_qubits + 2, num_qubits)
+                ancilla = list(range(num_qubits,num_qubits + 2))
                 # raise ValueError("mcx_mode should be 'constant' or 'linear'")
+
             if use_decompose:
                 Ho_params = [Parameter(f'Ho_params[{i}]') for i in range(num_layers)]
                 Hd_params = [Parameter(f'Hd_params[{i}]') for i in range(num_layers)]

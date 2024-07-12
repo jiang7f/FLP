@@ -1,6 +1,7 @@
 import os
 import time
 import csv
+import signal
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
@@ -51,7 +52,7 @@ def process_layer(prb, num_layers, mcx_mode, feedback, method):
     return result
 
 if __name__ == '__main__':
-    set_timeout = 60 * 10 # Set timeout duration
+    set_timeout = 1 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('experiment', 'data')[:-3]
@@ -93,3 +94,5 @@ if __name__ == '__main__':
                     num_complete += 1
                     if num_complete == len(futures):
                         print(f'Data has been written to {new_path}.csv')
+                        for process in executor._processes.values():
+                            os.kill(process.pid, signal.SIGTERM)

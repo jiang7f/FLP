@@ -1,6 +1,7 @@
 import os
 import time
 import csv
+import signal
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
@@ -92,3 +93,5 @@ if __name__ == '__main__':
                     num_complete += 1
                     if num_complete == len(futures):
                         print(f'Data has been written to {new_path}.csv')
+                        for process in executor._processes.values():
+                            os.kill(process.pid, signal.SIGTERM)
