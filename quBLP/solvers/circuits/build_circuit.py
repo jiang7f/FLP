@@ -19,7 +19,6 @@ from time import perf_counter
 from itertools import combinations
 from ...analysis import Feature
 from ...utils import QuickFeedbackException
-from qiskit.qasm2 import dump
 
 
 def calculate_fidelity_by_counts(counts, target_counts) -> float:
@@ -51,10 +50,17 @@ class QiskitCircuit:
             self.backend = FakeAlmadenV2() # 旧版 真机
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         # elif circuit_option.backend == 'AerSimulator':
-        else:
-            self.backend = AerSimulator()    # 仿真
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 's','sdg', 'x','y','h','z','mcx','cz','sx','sy','t','tdg','swap','rx','ry'])      
-            # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
+        elif circuit_option.backend == 'AerSimulator':
+            if 'GPU' in AerSimulator().available_devices():
+                self.backend = AerSimulator(method='statevector', device='GPU')
+            else:
+                self.backend = AerSimulator()
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])
+        elif circuit_option.backend == 'ddsim':
+            self.backend = AerSimulator()
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 's', 'sdg', 'x', 'y', 'h', 'z', 'mcx', 'cz', 'sx', 'sy', 't', 'tdg', 'swap', 'rx', 'ry', 'rz'])
+        # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
+
 
     def inference(self, params, shots=10000):
         feedback = self.circuit_option.feedback
@@ -62,8 +68,6 @@ class QiskitCircuit:
             final_qc = self.inference_circuit.assign_parameters(params) # 已使用pass_manager编译过的理论电路 (只缺参数)
         else:
             final_qc = self.inference_circuit(params)
-        with open("testqc.qasm", "w") as f:
-            dump(final_qc, f)
         if feedback is None or feedback == [] or 'run_time' in feedback:
             start = perf_counter()
             options = {"simulator": {"seed_simulator": 42}}
@@ -80,7 +84,6 @@ class QiskitCircuit:
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
-            # iprint(final_qc.draw())
             feature = Feature(final_qc, self.backend)
             self.width = feature.width
             self.depth = feature.depth
@@ -427,8 +430,12 @@ class PennylaneCircuit:
         num_qubits = self.num_qubits
         num_layers = self.num_layers
         algorithm_optimization_method = self.circuit_option.algorithm_optimization_method
-        
+        # try:
+        #     dev = qml.device("lightning.gpu", wires=num_qubits + 1)
+
+        # except:
         dev = qml.device("default.qubit", wires=num_qubits + 1)
+
 
         def plus_minus_gate_sequence_to_unitary(s):
             # 把非0元素映射成01
@@ -465,9 +472,9 @@ class PennylaneCircuit:
             for [var_idx_1, var_idx_2], theta in objective_func_term_list[1]:
                 qml.RZ(-theta * param / 2, var_idx_1)
                 qml.RZ(-theta * param / 2, var_idx_2)
-                qml.CNOT(var_idx_1, var_idx_2)
+                qml.CNOT(wires=[var_idx_1, var_idx_2])
                 qml.RZ(theta / 2 * param, var_idx_2)
-                qml.CNOT(var_idx_1, var_idx_2)
+                qml.CNOT(wires=[var_idx_1, var_idx_2])
 
         def penalty_decompose(penalty_mi:List, param:Parameter): 
             coeff = np.sum(penalty_mi[:-1]) / 2 - penalty_mi[-1]

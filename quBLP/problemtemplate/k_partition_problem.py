@@ -3,6 +3,7 @@ import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
 from quBLP.utils.quantum_lib import *
+import gurobipy as gp
 
 class KPartitionProblem(ConstrainedBinaryOptimization):
     def __init__(self, num_points: int, block_allot: List[int], pairs_connected: List[Tuple[Tuple[int, int], int]], fastsolve=False) -> None:
@@ -100,3 +101,35 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
             cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
 
+    def get_best_cost(self):
+        """ Solve the KPartitionProblem using Gurobi """
+        try:
+            model = gp.Model()
+            model.setParam('OutputFlag', 0)
+            
+            # Add variables
+            X = model.addVars(self.num_points, self.num_block, vtype=gp.GRB.BINARY, name="X")
+
+            # Objective function
+            model.setObjective(gp.quicksum(w - w * X[pair[0], j] for j in range(self.num_block) for pair, w in self.pairs_connected), gp.GRB.MAXIMIZE)
+
+            # Constraints
+            for i in range(self.num_points):
+                model.addConstr(gp.quicksum(X[i, j] for j in range(self.num_block)) == 1, f"PointAssignment_{i}")
+            
+            for j in range(self.num_block):
+                model.addConstr(gp.quicksum(X[i, j] for i in range(self.num_points)) == self.block_allot[j], f"BlockAllotment_{j}")
+
+            # Optimize the model
+            model.optimize()
+
+            if model.status == gp.GRB.OPTIMAL:
+                # solution = {var.varName: var.x for var in model.getVars()}.values()
+                optimal_value = model.objVal
+                return optimal_value
+            else:
+                return None
+        except gp.GurobiError as e:
+            print(f'Error code {e.errno}: {e}')
+            return None
+        

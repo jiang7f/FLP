@@ -2,6 +2,8 @@ import numpy as np
 import itertools
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization
+import gurobipy as gp
+
 class FacilityLocationProblem(ConstrainedBinaryOptimization):
     """ a facility location problem is defined as
     .. math::
@@ -141,5 +143,45 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         # penalty 所有约束都惩罚施加
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
     
+    def get_best_cost(self):
+        """ Solve the FLP using Gurobi """
+        try:
+            model = gp.Model()
+            model.setParam('OutputFlag', 0)
+            # Add variables
+            x = model.addVars(self.num_facilities, vtype=gp.GRB.BINARY, name="x")
+            y = model.addVars(self.num_demands, self.num_facilities, vtype=gp.GRB.BINARY, name="y")
 
+            # Objective function
+            model.setObjective(gp.quicksum(self.c[i][j] * y[i, j] for i in range(self.num_demands) for j in range(self.num_facilities)) + 
+                               gp.quicksum(self.f[j] * x[j] for j in range(self.num_facilities)), gp.GRB.MINIMIZE)
+
+            # Constraints
+            model.addConstrs((gp.quicksum(y[i, j] for j in range(self.num_facilities)) == 1 for i in range(self.num_demands)), "DemandAssignment")
+            model.addConstrs((y[i, j] <= x[j] for i in range(self.num_demands) for j in range(self.num_facilities)), "FacilityOpen")
+
+            # Optimize the model
+            model.optimize()
+
+            if model.status == gp.GRB.OPTIMAL:
+                # solution = {var.varName: var.x for var in model.getVars()}
+                optimal_value = model.objVal
+                # return solution, optimal_value
+                return optimal_value
+            else:
+                return None
+        except gp.GurobiError as e:
+            print(f'Error code {e.errno}: {e}')
+            return None
+
+    # def get_solution_bitstr(self):
+    #     """ Convert the optimal solution to a bit string """
+    #     solution, optimal_value = self.solve_with_gurobi()
+    #     if solution is None:
+    #         return None
+
+    #     bitstr = ""
+    #     for var_name, value in solution.items():
+    #         bitstr += str(int(value))
+    #     return bitstr, optimal_value
         

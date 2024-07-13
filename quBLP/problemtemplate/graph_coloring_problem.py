@@ -3,6 +3,7 @@ import numpy as np
 from typing import Iterable, List, Tuple
 from ..models import ConstrainedBinaryOptimization
 from quBLP.utils.quantum_lib import *
+import gurobipy as gp
 class GraphColoringProblem(ConstrainedBinaryOptimization):
     """ a graph coloring problem is defined as
         **变量**:
@@ -133,4 +134,33 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         # penalty 所有约束都惩罚施加
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
 
+    def get_best_cost(self):
+        try:
+            model = gp.Model()
+            model.setParam('OutputFlag', 0)
+            
+            X = model.addVars(self.num_graphs, self.num_colors, vtype=gp.GRB.BINARY, name="X")
+            Y = model.addVars(self.num_colors, vtype=gp.GRB.BINARY, name="Y")
+            Z = model.addVars(self.num_adjacent, self.num_colors, vtype=gp.GRB.BINARY, name="Z")
+            
+            model.setObjective(gp.quicksum(Y[c] for c in range(self.num_colors)), gp.GRB.MINIMIZE)
+            
+            model.addConstrs((gp.quicksum(X[v, i] for i in range(self.num_colors)) == 1 for v in range(self.num_graphs)), "OneColorPerGraph")
+            
+            for i in range(self.num_colors):
+                for k, (u, w) in enumerate(self.pairs_adjacent):
+                    model.addConstr(Z[k, i] >= X[u, i] + X[w, i])
+                for v in range(self.num_graphs):
+                    model.addConstr(X[v, i] <= Y[i])
+            
+            model.optimize()
+            
+            if model.status == gp.GRB.OPTIMAL:
+                optimal_value = model.objVal
+                return optimal_value
+            else:
+                return None
         
+        except gp.GurobiError as e:
+            print(f'Error code {e.errno}: {e}')
+            return None

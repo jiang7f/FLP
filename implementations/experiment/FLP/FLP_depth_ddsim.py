@@ -14,7 +14,7 @@ optimizer_option = OptimizerOption(
 )
 
 problems = [
-    # FLP(1, 2, [[10, 2]], [2, 2]), 
+    FLP(1, 3, [[10, 2, 1]], [2, 2, 1]), 
     # FLP(2, 2, [[10, 2],[1, 20]],[1, 1]),
     # FLP(2, 3, [[10, 2, 3],[1, 20, 3]],[1, 1, 1]),
     # FLP(3, 3, [[10, 2, 3],[10, 2, 3],[10, 2, 3]],[1, 1, 1]),
@@ -28,7 +28,7 @@ problems = [
     # KPP(4, [3, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1]]),
     # KPP(5, [4, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
     # KPP(5, [3, 2], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
-    KPP(15, [4, 5, 6], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
+    # KPP(5, [3, 1, 1], [[[0, 1], 1], [[1, 2], 1], [[2, 3], 1], [[3, 4], 1]]),
 ]
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 feedback = ['depth', 'culled_depth']
@@ -45,14 +45,14 @@ def process_layer(prb, num_layers, mcx_mode, feedback, method):
         use_decompose=True,
         circuit_type='qiskit',
         mcx_mode=mcx_mode,
-        backend='AerSimulator',
+        backend='ddsim',
         feedback=feedback,
     )
     result = prb.optimize(optimizer_option, circuit_option)
     return result
 
 if __name__ == '__main__':
-    set_timeout = 1 # Set timeout duration
+    set_timeout = 60 * 10 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('experiment', 'data')[:-3]
