@@ -1,1 +1,2 @@
-demands,facilities,layers,variables,constraints,mcx_mode,method,depth,culled_depth
+pid,layers,variables,constraints,method,ARG,in_constraints_probs,best_solution_probs
+0,1,6,3,penalty

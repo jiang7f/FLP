@@ -69,6 +69,7 @@ class ConstrainedBinaryOptimization(Model):
             完整结构：[[一次项列表], [二次项列表], ...]
         """
         self.fastsolve = fastsolve
+        self._driver_bitstr = None
         self.variables = []
         # self._constraints 预留为 linear 和 nonlinear 的并集
         self._linear_constraints = None  # yeld by @property 是 for_cyclic 和 for_others 的并集
@@ -276,12 +277,14 @@ class ConstrainedBinaryOptimization(Model):
         
 
     @property
-    def get_driver_bitstr(self):
-        if self.fastsolve:
-            return self.fast_solve_driver_bitstr()
-        # 如果不使用解析的解系, 高斯消元求解
-        basic_vector = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
-        return basic_vector
+    def driver_bitstr(self):
+        if self._driver_bitstr is None:
+            if self.fastsolve:
+                 self._driver_bitstr = self.fast_solve_driver_bitstr()
+            # 如果不使用解析的解系, 高斯消元求解
+            else:
+                self._driver_bitstr = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
+        return self._driver_bitstr
 
     def get_feasible_solution(self):
         ## find a feasible solution for the linear_constraints
@@ -316,10 +319,10 @@ class ConstrainedBinaryOptimization(Model):
         circuit_option.linear_constraints = self.linear_constraints
         circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
         circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
-        circuit_option.Hd_bits_list  = self.get_driver_bitstr
+        circuit_option.Hd_bits_list  = self.driver_bitstr
         np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
         iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
-        iprint(f'driver_bit_stirng:\n {self.get_driver_bitstr}') #-
+        iprint(f'driver_bit_stirng:\n {self.driver_bitstr}') #-
         objective_func_map = {
             'penalty': self.objective_penalty,
             'cyclic': self.objective_cyclic,
