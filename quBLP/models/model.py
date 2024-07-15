@@ -348,7 +348,7 @@ class ConstrainedBinaryOptimization(Model):
         mean_cost = 0
         best_solution_probs = 0
         for c, p in zip(collapse_state, probs):
-            pcost = self.objective_penalty(c)
+            pcost = self.cost_dir * self.objective_penalty(c)
             if p >= 1e-3:
                 iprint(f'{c}: {pcost} - {p}')
             if pcost == best_cost:
@@ -359,7 +359,7 @@ class ConstrainedBinaryOptimization(Model):
         #+ 输出最大概率解
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
-        cost = circuit_option.objective_func(max_prob_solution)
+        cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
         iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
         iprint(f'best_solution_probs: {best_solution_probs}')
         iprint(f"mean_cost: {mean_cost}")

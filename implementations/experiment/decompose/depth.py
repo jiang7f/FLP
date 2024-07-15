@@ -32,13 +32,6 @@ with open(f"{new_path}_configs.txt", "w") as file:
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')
 
-# configs = flp_configs + gcp_configs + kpp_configs
-
-# with open(f"{new_path}_configs.txt", "w") as file:
-#     for item in configs:
-#         file.write(str(item) + '\n')
-# exit()
-
 layers = range(1, 5)
 methods = ['penalty', 'penalty', 'cyclic', 'HEA']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']

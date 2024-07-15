@@ -111,7 +111,7 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
             X = model.addVars(self.num_points, self.num_block, vtype=gp.GRB.BINARY, name="X")
 
             # Objective function
-            model.setObjective(gp.quicksum(w - w * X[pair[0], j] for j in range(self.num_block) for pair, w in self.pairs_connected), gp.GRB.MAXIMIZE)
+            model.setObjective(gp.quicksum(w - w * gp.quicksum(X[pair[0], j] * X[pair[1], j] for j in range(self.num_block)) for pair, w in self.pairs_connected), gp.GRB.MAXIMIZE)
 
             # Constraints
             for i in range(self.num_points):

@@ -20,18 +20,17 @@ optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
     max_iter=150
 )
-flp_problems_pkg, flp_configs = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
-gcp_problems_pkg, gcp_configs = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
-kpp_problems_pkg, kpp_configs = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 
 problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_problems_pkg), enumerate(kpp_problems_pkg)))
-# problems_pkg = flp_problems_pkg + gcp_problems_pkg + kpp_problems_pkg
-# configs = flp_configs + gcp_configs + kpp_configs
 
-# with open(f"{new_path}_configs.txt", "w") as file:
-#     for item in configs:
-#         file.write(str(item) + '\n')
-# exit()
+configs_pkg = flp_configs_pkg + gcp_configs_pkg + kpp_configs_pkg
+with open(f"{new_path}_configs.txt", "w") as file:
+    for pkid, configs in enumerate(configs_pkg):
+        for pbid, problem in enumerate(configs):
+            file.write(f'{pkid}-{pbid}: {problem}\n')
 
 layers = range(1, 6)
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
