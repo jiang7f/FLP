@@ -10,7 +10,8 @@ from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
-random.seed(7)
+
+random.seed(0x7fff)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -19,7 +20,7 @@ optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
     max_iter=150
 )
-flp_problems_pkg, flp_configs = generater.generate_flp(10, [(1, 2), (2, 2), (2, 3), (3, 4)], 1, 20)
+flp_problems_pkg, flp_configs = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
 gcp_problems_pkg, gcp_configs = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
 kpp_problems_pkg, kpp_configs = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 
@@ -33,7 +34,7 @@ problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_p
 # exit()
 
 layers = range(1, 6)
-methods = ['penalty', 'commute', 'cyclic', 'HEA']
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']
 headers = ['pkid', 'pbid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 

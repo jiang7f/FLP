@@ -10,7 +10,7 @@ from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
-random.seed(7)
+random.seed(0x7fff)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -19,7 +19,7 @@ optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
     max_iter=150
 )
-flp_problems, flp_configs = generater.generate_flp(10, [(1, 2), (2, 2), (2, 3), (3, 4)], 1, 20)
+flp_problems, flp_configs = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
 gcp_problems, gcp_configs = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
 kpp_problems, kpp_configs = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 
