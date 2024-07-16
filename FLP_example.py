@@ -12,14 +12,14 @@ optimizer_option = OptimizerOption(
     max_iter=150
 )
 circuit_option = CircuitOption(
-    num_layers=5,
+    num_layers=1,
     need_draw=False,
-    use_decompose=True,
+    use_decompose=False,
     mcx_mode='linear',
     circuit_type='qiskit',
     backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
     # feedback=['depth', 'culled_depth', 'latency', 'width'],
-    # feedback=['transpile_time', 'run_time'],
+    feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
 )
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 raw_depth = [[] for _ in range(len(methods))]
@@ -28,7 +28,8 @@ depth_without_one_qubit_gate = [[] for _ in range(len(methods))]
 flp_problems, flp_configs = generater.generate_flp(0, [(1, 2), (2, 2), (2, 3), (3, 4)], 1, 20)
 gcp_problems, gcp_configs = generater.generate_gcp(0, [(3, 2), (4, 1), (4, 2), (4, 3)])
 # kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
-kpp_problems, kpp_configs = generater.generate_kpp(2, [(6, [2, 2, 2], 5)], 1, 20)
+# kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
+kpp_problems, kpp_configs = generater.generate_kpp(1, [(9, [3, 3, 3], 8), (8, [2, 2, 4], 7), (7, [2, 2, 3], 6), (6, [2, 2, 2], 5), (5, [1, 2, 2], 4), (6, [3, 3], 3), (3, [1, 1, 1], 2)], 1, 20)
 
 problems_pkg = flp_problems + gcp_problems + kpp_problems
 problems = [prb for problems in problems_pkg for prb in problems]
@@ -41,7 +42,7 @@ problems = [prb for problems in problems_pkg for prb in problems]
 #     for config in configs:
 #         print(*config)
 #     print()
-flp = problems[0]
+flp = problems[3]
 # print(flp.get_best_cost())
 # # print(flp.get_solution_bitstr())
 # exit()

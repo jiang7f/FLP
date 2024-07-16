@@ -1,4 +1,4 @@
-from quBLP.utils import iprint
+from quBLP.utils import iprint, get_rss_usage
 import pennylane as qml
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Parameter
@@ -51,7 +51,8 @@ class QiskitCircuit:
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         # elif circuit_option.backend == 'AerSimulator':
         elif circuit_option.backend == 'AerSimulator':
-            if 'GPU' in AerSimulator().available_devices():
+            # GPU可以用 且 不需要计算rss时
+            if 'GPU' in AerSimulator().available_devices() and 'rss_usage' not in circuit_option.feedback:
                 self.backend = AerSimulator(method='statevector', device='GPU')
             else:
                 self.backend = AerSimulator()
@@ -66,6 +67,7 @@ class QiskitCircuit:
         feedback = self.circuit_option.feedback
         if self.circuit_option.use_decompose:
             final_qc = self.inference_circuit.assign_parameters(params) # 已使用pass_manager编译过的理论电路 (只缺参数)
+
         else:
             final_qc = self.inference_circuit(params)
         if feedback is None or feedback == [] or 'run_time' in feedback:
@@ -85,13 +87,20 @@ class QiskitCircuit:
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
             feature = Feature(final_qc, self.backend)
-            self.width = feature.width
-            self.depth = feature.depth
-            self.num_one_qubit_gates = feature.num_one_qubit_gates
-            self.num_two_qubit_gates = feature.num_two_qubit_gates
-            self.size = feature.size
-            self.latency = feature.latency_all()
-            self.culled_depth = feature.get_depth_without_one_qubit_gate()
+            if 'width' in feedback:
+                self.width = feature.width
+            if 'depth' in feedback:
+                self.depth = feature.depth
+            if 'num_one_qubit_gates' in feedback:
+                self.num_one_qubit_gates = feature.num_one_qubit_gates
+            if 'num_two_qubit_gates' in feedback:
+                self.num_two_qubit_gates = feature.num_two_qubit_gates
+            if 'size' in feedback:
+                self.size = feature.size
+            if 'latency' in feedback:
+                self.latency = feature.latency_all()
+            if 'culled_depth' in feedback:
+                self.culled_depth = feature.get_depth_without_one_qubit_gate()
             feedback_data = {feedback_term: getattr(self, feedback_term, None) for feedback_term in feedback}
             raise QuickFeedbackException(message=f"debug finished: {self.circuit_option.algorithm_optimization_method}, {self.circuit_option.backend}, use_decompose={self.circuit_option.use_decompose}",
                                          data=feedback_data)
@@ -190,6 +199,12 @@ class QiskitCircuit:
             linear_constraints = self.circuit_option.linear_constraints
             for i in range(num_qubits):
                 qc.h(i)
+            # 提前算一次Ho
+            if not use_decompose:
+                Ho = Ho_unitary(objective_func_term_list)
+                # 惩罚项 Hamiltonian penalty
+                for penalty_mi in linear_constraints:
+                    Ho += pnt_lbd * penalty_unitary(penalty_mi)
             for layer in range(num_layers):
                 if use_decompose:
                     # 目标函数
@@ -198,10 +213,6 @@ class QiskitCircuit:
                     for penalty_mi in linear_constraints:
                         penalty_decompose(qc, penalty_mi, Ho_params[layer])
                 else:
-                    Ho = Ho_unitary(objective_func_term_list)
-                    # 惩罚项 Hamiltonian penalty
-                    for penalty_mi in linear_constraints:
-                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
                     # Class Parameter 存在问题，待修改
                     # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
                     qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
@@ -235,7 +246,13 @@ class QiskitCircuit:
             for i in set(np.nonzero(self.circuit_option.feasiable_state)[0]).intersection(cyclic_qubit_set):
                 qc.x(i)
             for i in others_qubit_set:
-                qc.h(i)                 
+                qc.h(i)
+            # 只算一次Ho
+            if not use_decompose:
+                Ho = Ho_unitary(objective_func_term_list)
+                # constraints_for_others 惩罚项
+                for penalty_mi in constraints_for_others:
+                    Ho += pnt_lbd * penalty_unitary(penalty_mi)
             for layer in range(num_layers):
                 if use_decompose:
                     # 目标函数
@@ -266,10 +283,6 @@ class QiskitCircuit:
                             qc.u(np.pi / 2, np.pi / 2, np.pi / 2, nzlist[i])
 
                 else:
-                    Ho = Ho_unitary(objective_func_term_list)
-                    # constraints_for_others 惩罚项
-                    for penalty_mi in constraints_for_others:
-                        Ho += pnt_lbd * penalty_unitary(penalty_mi)
                     # Ho取负，对应绝热演化能级问题，但因为训练参数，可能没区别
                     qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
                     # constraints_for_cyclic --> 驱动哈密顿量
@@ -290,6 +303,8 @@ class QiskitCircuit:
             return transpiled_qc
         
         def circuit_commute(params=None):
+            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+                start = perf_counter()
             iprint("'circuit_commute' function ran once") # wait be delete
             mcx_mode = self.circuit_option.mcx_mode
             if self.circuit_option.use_decompose == False:
@@ -313,16 +328,17 @@ class QiskitCircuit:
                 Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
 
+            start_rss_usage = get_rss_usage()
             Hd_bits_list = self.circuit_option.Hd_bits_list
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qc.x(i)
+            if not use_decompose and self.circuit_option.feedback is None:
+                Ho = Ho_unitary(objective_func_term_list)
             for layer in range(num_layers):
-                #$ Ho
-                if use_decompose:
-                    # 目标函数
+                #$ 比较分解技术的时候 Ho都分解
+                if use_decompose or self.circuit_option.feedback is not None:
                     Ho_decompose(qc, objective_func_term_list, Ho_params[layer])
                 else:
-                    Ho = Ho_unitary(objective_func_term_list)
                     qc.unitary(expm(-1j * Ho_params[layer] * Ho), range(num_qubits)[::-1])
                 # Hd 通过对易哈密顿量惩罚约束
                 for bit_strings in range(len(Hd_bits_list)):
@@ -333,14 +349,22 @@ class QiskitCircuit:
                     if use_decompose:
                         driver_component_qiskit(qc, nonzero_indices, ancilla, hdi_string, Hd_params[layer], mcx_mode)
                     else:
-                        qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
+                        if self.circuit_option.feedback is None:
+                            qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
+                        else:
+                            # 比较分解效果时，不优化
+                            qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(hd_bits)), range(num_qubits)[::-1])
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
-                start = perf_counter()
-            transpiled_qc = self.pass_manager.run(qc)
+                middle = perf_counter()
+                transpiled_qc = qc.decompose(reps=3)
+            else:
+                transpiled_qc = self.pass_manager.run(qc)
             if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
-                self.transpile_time = end - start
+                self.transpile_time = (middle - start, end - middle)
+            # 计算电路的内存占用
+            self.rss_usage = get_rss_usage() - start_rss_usage
             return transpiled_qc
         
         def circuit_HEA(params=None):

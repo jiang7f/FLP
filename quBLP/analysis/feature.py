@@ -33,7 +33,7 @@ class Feature:
         self.size = self._circuit.size()
         self._latency_dict = None
 
-    def latency(self, qubit):
+    def latency_for_qubit(self, qubit):
         return self.latency_dict[qubit]
 
     def latency_all(self):
