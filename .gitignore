@@ -6,6 +6,5 @@ __pycache__/
 *.pyc
 */.ipynb_checkpoints/
 *.log
-*.txt
 3_QCOA
 gp/

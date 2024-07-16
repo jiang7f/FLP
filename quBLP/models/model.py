@@ -1,5 +1,5 @@
 ## This file defines a problem of binary constraint optimization 
-from quBLP.utils import iprint
+from quBLP.utils import iprint, set_print_form
 import numpy as np
 import itertools
 from typing import Iterable, List, Callable,  Union
@@ -68,6 +68,7 @@ class ConstrainedBinaryOptimization(Model):
             二次项列表: [[[0, 1], 1.5]] 表示 1.5*x_0*x_1
             完整结构：[[一次项列表], [二次项列表], ...]
         """
+        set_print_form()
         self.fastsolve = fastsolve
         self._driver_bitstr = None
         self.variables = []
@@ -320,7 +321,109 @@ class ConstrainedBinaryOptimization(Model):
         circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
         circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
         circuit_option.Hd_bits_list  = self.driver_bitstr
-        np.set_printoptions(threshold=np.inf, suppress=True, precision=4,  linewidth=300)
+
+        iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
+        iprint(f'driver_bit_stirng:\n {self.driver_bitstr}') #-
+        objective_func_map = {
+            'penalty': self.objective_penalty,
+            'cyclic': self.objective_cyclic,
+            'commute': self.objective_commute,
+            'HEA': self.objective_penalty
+        }
+        if self.algorithm_optimization_method in objective_func_map:
+            circuit_option.objective_func = objective_func_map.get(self.algorithm_optimization_method)
+
+        try:
+            collapse_state, probs = solve(optimizer_option, circuit_option)
+        except QuickFeedbackException as qfe:
+            return qfe.data
+        self.collapse_state=collapse_state
+        self.probs=probs
+        # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
+        # iprint(dict(zip(collapse_state_str, probs)))
+
+
+        # 找到最优解和最优解的cost / by groubi
+        best_cost = self.get_best_cost()
+        iprint(f'best_cost: {best_cost}')
+        mean_cost = 0
+        best_solution_probs = 0
+        for c, p in zip(collapse_state, probs):
+            pcost = self.cost_dir * self.objective_penalty(c)
+            if p >= 1e-3:
+                iprint(f'{c}: {pcost} - {p}')
+            if pcost == best_cost:
+                best_solution_probs += p
+            mean_cost += pcost * p
+        best_solution_probs *= 100
+
+        #+ 输出最大概率解
+        maxprobidex = np.argmax(probs)
+        max_prob_solution = collapse_state[maxprobidex]
+        cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
+        iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+        iprint(f'best_solution_probs: {best_solution_probs}')
+        iprint(f"mean_cost: {mean_cost}")
+        in_constraints_probs = 0
+        for cs, pr in zip(self.collapse_state, self.probs):
+            if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
+                in_constraints_probs += pr
+        in_constraints_probs *= 100
+        iprint(f'in_constraint_probs: {in_constraints_probs}')
+        ARG = abs((mean_cost - best_cost) / best_cost)
+        iprint(f'ARG: {ARG}')
+        return ARG, in_constraints_probs, best_solution_probs
+
+    def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption) -> None: 
+        # 最多非零元素的列索引, 对该比特冻结
+        max_non_zero_col_index = np.argmax(np.count_nonzero(self.driver_bitstr, axis=0))
+        self.frozen_idx = max_non_zero_col_index
+        print("冻结id", self.get_feasible_solution()[self.frozen_idx])
+        circuit_option.num_qubits = len(self.variables) - 1
+        circuit_option.algorithm_optimization_method = self.algorithm_optimization_method
+        circuit_option.penalty_lambda = self.penalty_lambda
+        #+++ 这样只冻结了一种形态, 另一种形态待补
+
+        print("feasible:", self.get_feasible_solution())
+        circuit_option.feasiable_state = np.delete(self.get_feasible_solution(), self.frozen_idx, axis=0)
+        print("feasible:", circuit_option.feasiable_state)
+        
+        ## frozen state
+        # self.frozen_state = 0
+        self.frozen_state = self.get_feasible_solution()[self.frozen_idx]
+        def process_objective_term_list(objective_iterm_list, frozen_idx, frozen_state):
+            process_list = []
+            for dimension in objective_iterm_list:
+                dimension_list = []
+                for objective_term in dimension:
+                    if frozen_state == 0 and frozen_idx in objective_term[0]:
+                        # 如果 frozen_state == 0 且 x 在内层列表中，移除整个term
+                        continue
+                    elif frozen_state == 1 and frozen_idx in objective_term[0]:
+                        # 如果 frozen_state == 1 且 x 在内层列表中，移除term中的 x
+                        iterm = [varbs for varbs in objective_term[0] if varbs != frozen_idx]
+                        if iterm:
+                            dimension_list.append([iterm, objective_term[1]])
+                    else:
+                        # 否则保留 inner_list
+                        dimension_list.append(objective_term)
+                # 空维度也要占位
+                process_list.append(dimension_list)
+            return process_list
+        print('term_list', self.objective_func_term_list)
+        circuit_option.objective_func_term_list = process_objective_term_list(self.objective_func_term_list, self.frozen_idx, self.frozen_state)
+        print('term_list', circuit_option.objective_func_term_list)
+        
+        print(self.linear_constraints)
+        circuit_option.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
+        print(circuit_option.linear_constraints)
+        ###################################
+        print("==========")
+        # circuit_option.Hd_bits_list  = self.driver_bitstr
+
+        exit()
+        circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
+        circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
         iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
         iprint(f'driver_bit_stirng:\n {self.driver_bitstr}') #-
         objective_func_map = {

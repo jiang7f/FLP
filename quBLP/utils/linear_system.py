@@ -1,10 +1,5 @@
 import numpy as np
 
-# 设置numpy输出格式
-def set_print_form(suppress=True, precision=4, linewidth=300):
-    # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
-    np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
-
 # 张量积逆序
 def reorder_tensor_product(matrix):
   dim = matrix.shape[0]
