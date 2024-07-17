@@ -6,18 +6,19 @@ from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
-random.seed(0x7fff)
+random.seed(0x7ff)
 optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
     max_iter=150
 )
 circuit_option = CircuitOption(
-    num_layers=5,
+    num_layers=7,
     need_draw=False,
     use_decompose=True,
     mcx_mode='constant',
     circuit_type='qiskit',
-    backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
+    backend='AerSimulator-GPU',  # 'FakeQuebec' # 'AerSimulator'
+    # backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
     # feedback=['depth', 'culled_depth', 'latency', 'width'],
     # feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
 )
@@ -25,11 +26,11 @@ methods = ['penalty', 'cyclic', 'commute', 'HEA']
 raw_depth = [[] for _ in range(len(methods))]
 depth_without_one_qubit_gate = [[] for _ in range(len(methods))]
 # latency = [[] for _ in range(len(methods))]
-flp_problems, flp_configs = generater.generate_flp(0, [(1, 2), (2, 2), (2, 3), (3, 4)], 1, 20)
-gcp_problems, gcp_configs = generater.generate_gcp(1, [(5, 1)])
+flp_problems, flp_configs = generater.generate_flp(0, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+gcp_problems, gcp_configs = generater.generate_gcp(1, [(3, 1), (3, 2), (4, 2), (4, 3)])
 # kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 # kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
-kpp_problems, kpp_configs = generater.generate_kpp(0, [(9, [3, 3, 3], 8), (8, [2, 2, 4], 7), (7, [2, 2, 3], 6), (6, [2, 2, 2], 5), (5, [1, 2, 2], 4), (6, [3, 3], 3), (3, [1, 1, 1], 2)], 1, 20)
+kpp_problems, kpp_configs = generater.generate_kpp(0, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
 
 problems_pkg = flp_problems + gcp_problems + kpp_problems
 problems = [prb for problems in problems_pkg for prb in problems]
@@ -42,7 +43,7 @@ problems = [prb for problems in problems_pkg for prb in problems]
 #     for config in configs:
 #         print(*config)
 #     print()
-prb = problems[0]
+prb = problems[3]
 # print(prb.get_best_cost())
 # print(flp.get_solution_bitstr())
 # exit()

@@ -21,8 +21,8 @@ optimizer_option = OptimizerOption(
     max_iter=150
 )
 flp_problems_pkg, flp_configs_pkg = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(10, [(3, 1), (3, 2), (4, 2), (4, 3)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(10, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
 
 problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_problems_pkg), enumerate(kpp_problems_pkg)))
 
@@ -47,7 +47,7 @@ def process_layer(prb, num_layers, method):
         mcx_mode='constant',
         backend='ddsim' if method == 'commute' else 'AerSimulator', # 'FakeQuebec' # 'AerSimulator'
     )
-    ARG, in_constraints_probs, best_solution_probs = prb.optimize(optimizer_option, circuit_option)
+    ARG, in_constraints_probs, best_solution_probs, _ = prb.optimize(optimizer_option, circuit_option)
     return [ARG, in_constraints_probs, best_solution_probs]
 
 if __name__ == '__main__':

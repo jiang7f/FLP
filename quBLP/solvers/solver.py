@@ -31,9 +31,8 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     elif optimizer_option.params_optimization_method == 'COBYLA':
         best_params, iteration_count = train_non_gradient(optimizer_option)
     collapse_state, probs = circuit.inference(best_params)
+    iprint(f'iteration_count: {iteration_count}')
     iprint(f"best_params: {best_params}") #-
-    print(iteration_count)
-    print("===========")
     return collapse_state, probs, iteration_count
 
 

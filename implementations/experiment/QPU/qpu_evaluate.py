@@ -1,4 +1,3 @@
-should_print = True
 import os
 import time
 import csv
@@ -43,7 +42,7 @@ headers = ["pkid", 'layers', 'method', 'backend', 'shots'] + evaluation_metrics
 def process_layer(prb, method, backend, shots):
     prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
-        num_layers=1 if method == 'commute' else 10,
+        num_layers=1 if method == 'commute' else 7,
         need_draw=False,
         use_decompose=True,
         circuit_type='qiskit',
@@ -55,7 +54,7 @@ def process_layer(prb, method, backend, shots):
     return result
 
 if __name__ == '__main__':
-    set_timeout = 60 * 60 * 24 # Set timeout duration
+    set_timeout = 60 * 60 * 24 * 3 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('experiment', 'data')[:-3]
@@ -66,7 +65,7 @@ if __name__ == '__main__':
         writer.writerow(headers)  # Write headers once
 
         num_processes_cpu = os.cpu_count()
-        with ProcessPoolExecutor(max_workers=1) as executor:
+        with ProcessPoolExecutor(max_workers=30) as executor:
             futures = []
             for backend in backends:
                 for shots in shotss:

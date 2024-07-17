@@ -41,7 +41,7 @@ headers = ["pkid", 'layers'] + feedback
 def process_layer(prb, method, feedback):
     prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
-        num_layers=1 if method == 'commute' else 10,
+        num_layers=1 if method == 'commute' else 7,
         need_draw=False,
         use_decompose=True,
         circuit_type='qiskit',
@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
             start_time = time.perf_counter()
             for future, pkid, method in futures:
-                num_layers = 1 if method == 'commute' else 10
+                num_layers = 1 if method == 'commute' else 7
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []

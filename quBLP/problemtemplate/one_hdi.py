@@ -2,12 +2,11 @@ from quBLP.utils import iprint
 import numpy as np
 from typing import Iterable
 from ..models import ConstrainedBinaryOptimization
-class SharedVariables(ConstrainedBinaryOptimization):
-    def __init__(self, num_qubits: int, num_shared_variales: int, fastsolve=False) -> None:
+class One_Hdi(ConstrainedBinaryOptimization):
+    def __init__(self, num_qubits: int, fastsolve=False) -> None:
         super().__init__(fastsolve)
         self.set_optimization_direction('min')
         self.num_qubits = num_qubits
-        self.num_shared_variales = num_shared_variales
         self.num_variables = num_qubits
         self.X = self.add_binary_variables('x', [num_qubits])
         self.objective_penalty = self.objective
@@ -22,16 +21,11 @@ class SharedVariables(ConstrainedBinaryOptimization):
     def linear_constraints(self):
         if self._linear_constraints is None:
             n = self.num_qubits
-            m = self.num_shared_variales
-            total_rows = n // 2
-            total_columns = self.num_variables + 1
+            total_rows = 1
+            total_columns = n + 1
             matrix = np.zeros((total_rows, total_columns))
-            for i in range(m):
-                matrix[i, i] = 1
-                matrix[i, self.num_qubits - 1] = 1
-            for i in range(m, total_rows):
-                matrix[i, i] = 1
-                matrix[i, self.num_qubits - 1 - i] = 1
+            for i in range(n):
+                matrix[0, i] = 1 - (i % 2) * 2
             self._linear_constraints = matrix
             iprint(self._linear_constraints)
         return self._linear_constraints

@@ -54,7 +54,7 @@ class QiskitCircuit:
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'AerSimulator-GPU':
             self.backend = AerSimulator(method='statevector', device='GPU')
-            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])
+            self.pass_manager = generate_preset_pass_manager(optimization_level=3, basis_gates=['measure', 'cx', 'id', 's', 'sdg', 'x', 'y', 'h', 'z', 'mcx', 'cz', 'sx', 'sy', 't', 'tdg', 'swap', 'rx', 'ry', 'rz'])
         elif circuit_option.backend == 'AerSimulator':
             self.backend = AerSimulator()
             self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])
@@ -80,7 +80,7 @@ class QiskitCircuit:
                 counts = job.result().get_counts(final_qc)
             else:
                 sampler = Sampler(backend=self.backend, options=options)
-                result = sampler.run([final_qc],shots=self.circuit_option.shots).result()
+                result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
                 pub_result = result[0]
                 counts = pub_result.data.c.get_counts()
             end = perf_counter()

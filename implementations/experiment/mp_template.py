@@ -52,7 +52,7 @@ def process_layer(prb, num_layers, method):
         use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='constant',
-        backend='ddsim' if method == 'commute' else 'AerSimulator', # 'FakeQuebec' # 'AerSimulator'
+        backend='ddsim' if method == 'commute' else 'AerSimulator-GPU', # 'FakeQuebec' # 'AerSimulator'
     )
     ARG, in_constraints_probs, best_solution_probs = prb.optimize(optimizer_option, circuit_option)
     return [ARG, in_constraints_probs, best_solution_probs]

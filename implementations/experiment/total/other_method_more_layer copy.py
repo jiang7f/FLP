@@ -32,9 +32,9 @@ with open(f"{new_path}.config", "w") as file:
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')
 
-layers = range(1, 8)
-methods = ['penalty', 'cyclic', 'commute', 'HEA']
-evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
+layers = range(5, 11)
+methods = ['penalty']
+evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']
 headers = ['pkid', 'pbid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 
 def process_layer(prb, num_layers, method):
@@ -47,12 +47,12 @@ def process_layer(prb, num_layers, method):
         mcx_mode='constant',
         backend='ddsim' if method == 'commute' else 'AerSimulator-GPU', # 'FakeQuebec' # 'AerSimulator'
     )
-    ARG, in_constraints_probs, best_solution_probs, iteration_count = prb.optimize(optimizer_option, circuit_option)
-    return [ARG, in_constraints_probs, best_solution_probs, iteration_count]
+    ARG, in_constraints_probs, best_solution_probs, _ = prb.optimize(optimizer_option, circuit_option)
+    return [ARG, in_constraints_probs, best_solution_probs]
 
 if __name__ == '__main__':
     all_start_time = time.perf_counter()
-    set_timeout = 60 * 60 * 24 * 3 # Set timeout duration
+    set_timeout = 60 * 60 * 24 * 7 # Set timeout duration
     num_complete = 0
     print(new_path)
     with open(f'{new_path}.csv', mode='w', newline='') as file:
@@ -66,14 +66,15 @@ if __name__ == '__main__':
                 if method == 'commute':
                     num_processes = num_processes_cpu // 2
                 else:
-                    num_processes = 2**(5 - diff_level)
+                    num_processes = 1
                 with ProcessPoolExecutor(max_workers=num_processes) as executor:
                     futures = []
                     for layer in layers: 
                         for pbid, prb in enumerate(problems):
-                            print(f'{pkid}-{pbid}, {layer}, {method} build')
-                            future = executor.submit(process_layer, prb, layer, method)
-                            futures.append((future, prb, pkid, pbid, layer, method))
+                            if pkid == 7 and pbid == 0 and layer in [5]:
+                                print(f'{pkid}-{pbid}, {layer}, {method} build')
+                                future = executor.submit(process_layer, prb, layer, method)
+                                futures.append((future, prb, pkid, pbid, layer, method))
 
                     start_time = time.perf_counter()
                     for future, prb, pkid, pbid, layer, method in futures:

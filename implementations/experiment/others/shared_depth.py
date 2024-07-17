@@ -1,5 +1,5 @@
 import csv
-from quBLP.problemtemplate import SharedVariables as SV
+from quBLP.problemtemplate import One_Hdi as OH
 from quBLP.models import CircuitOption, OptimizerOption
 feedback=['depth', 'culled_depth']
 optimizer_option = OptimizerOption(
@@ -17,7 +17,7 @@ circuit_option = CircuitOption(
     feedback=feedback,
 )
 # methods = ['penalty', 'cyclic', 'commute', 'HEA']
-problems = [SV(40, i) for i in range(2, 21, 2)]
+problems = [OH(40, i) for i in range(2, 21, 2)]
 
 csv_data = []
 headers = ['num_qubits', 'num_shared_variables', 'Layers', 'num_constraint', 'depth', 'culled_depth']
@@ -30,10 +30,10 @@ for sv in problems:
         circuit_option.num_layers = num_layers
         data.append(sv.optimize(optimizer_option, circuit_option))
     
-    print(f'问题规模:{sv.num_qubits}, {sv.num_shared_variales}, 约束数量: {len(sv.linear_constraints)}')
+    print(f'问题规模:{sv.num_qubits}, {sv.mcx_constraint}, 约束数量: {len(sv.linear_constraints)}')
 
     for num_layers in layers:
-        row = [sv.num_qubits, sv.num_shared_variales, num_layers, len(sv.linear_constraints)]
+        row = [sv.num_qubits, sv.mcx_constraint, num_layers, len(sv.linear_constraints)]
         for dict_term in feedback:
             row.extend([data[l - 1][dict_term] for l in layers])
         csv_data.append(row)

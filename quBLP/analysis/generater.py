@@ -4,6 +4,7 @@ from quBLP.utils.gadget import iprint
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.problemtemplate import KPartitionProblem as KPP
+from quBLP.problemtemplate import One_Hdi as OH
 
 random.seed(0x7fff)
 
@@ -104,22 +105,37 @@ def generate_kpp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
 
     return problem_list, config_list
 
-if __name__ == '__main__':
-    flp_problems_pkg, flp_configs_pkg = generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
-    gcp_problems_pkg, gcp_configs_pkg = generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
-    kpp_problems_pkg, kpp_configs_pkg = generate_kpp(10, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
+def generate_oh(n_start, n_end):
+    problem_list = []
+    config_list = []
+    for idx_scale, n in enumerate(range(n_start, n_end)):
+        problem = OH(n)
+        problem_list.append(problem)
+        config_list.append((idx_scale, n))
+    return problem_list, config_list
 
-    # problems = flp_problems + gcp_problems + kpp_problems
-    # tem = [p for prb in problems for p in prb]
-    # print(tem)
-    # exit()
-    all_configs = [flp_configs_pkg, gcp_configs_pkg, kpp_configs_pkg]
-    problem_types = ["FLP", "GCP", "KPP"]
-    for problem_type, configs in zip(problem_types, all_configs):
-        print(f"{problem_type}:")
-        print(sum(len(row) for row in configs))
+
+if __name__ == '__main__':
+    # flp_problems_pkg, flp_configs_pkg = generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+    # gcp_problems_pkg, gcp_configs_pkg = generate_gcp(10, [(3, 2), (3, 2), (4, 2), (4, 3)])
+    # kpp_problems_pkg, kpp_configs_pkg = generate_kpp(10, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
+
+    # # problems = flp_problems + gcp_problems + kpp_problems
+    # # tem = [p for prb in problems for p in prb]
+    # # print(tem)
+    # # exit()
+    # all_configs = [flp_configs_pkg, gcp_configs_pkg, kpp_configs_pkg]
+    # problem_types = ["FLP", "GCP", "KPP"]
+    # for problem_type, configs in zip(problem_types, all_configs):
+    #     print(f"{problem_type}:")
+    #     print(sum(len(row) for row in configs))
     
-    configs_pkg = flp_configs_pkg + gcp_configs_pkg + kpp_configs_pkg
-    for pkid, configs in enumerate(configs_pkg):
-        for pbid, problem in enumerate(configs):
-            print(f'{pkid}-{pbid}: {problem}')
+    # configs_pkg = flp_configs_pkg + gcp_configs_pkg + kpp_configs_pkg
+    # for pkid, configs in enumerate(configs_pkg):
+    #     for pbid, problem in enumerate(configs):
+    #         print(f'{pkid}-{pbid}: {problem}')
+
+    a, b =  generate_oh(5, 13)
+    for c, d in zip(a, b):
+        print (c, d)
+    

@@ -3,11 +3,7 @@ import time
 import csv
 import signal
 import random
-import itertools
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
-from quBLP.problemtemplate import FacilityLocationProblem as FLP
-from quBLP.problemtemplate import GraphColoringProblem as GCP
-from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
@@ -21,22 +17,21 @@ optimizer_option = OptimizerOption(
     max_iter=150
 )
 
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(9, [3, 3, 3], 8), (8, [2, 2, 4], 7), (7, [2, 2, 3], 6), (6, [2, 2, 2], 5), (5, [1, 2, 2], 4), (6, [3, 3], 3), (3, [1, 1, 1], 2)], 1, 20)
-# kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(3, [1, 1, 1], 2), (6, [3, 3], 3), (5, [1, 2, 2], 4), (6, [2, 2, 2], 5), (7, [2, 2, 3], 6), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
-problems_pkg = kpp_problems_pkg
+kpp_problems, kpp_configs = generater.generate_oh(5, 13)
+problems = kpp_problems
 
-configs_pkg = kpp_configs_pkg
+configs = kpp_configs
 with open(f"{new_path}.config", "w") as file:
-    for pkid, configs in enumerate(configs_pkg):
-        for pbid, problem in enumerate(configs):
-            file.write(f'{pkid}-{pbid}: {problem}\n')
+    file.write(f'idx, num_qubit, num_constraint')
+    for config in configs:
+        file.write(f'{config}\n')
 
 layers = range(1, 2)
 # mcx_modes = ['constant', 'linear']
 if_use_decompose = [True, False]
 feedback = ['transpile_time', 'depth', 'culled_depth', 'rss_usage']
 
-headers = ["pkid", 'pbid', 'layers', "use_decompose"] + feedback
+headers = ["pkid", 'qubits', 'layers', "use_decompose"] + feedback
 
 def process_layer(prb, use_decompose, num_layers, feedback):
     prb.set_algorithm_optimization_method('commute', 400)
@@ -63,19 +58,18 @@ if __name__ == '__main__':
         writer = csv.writer(file)
         writer.writerow(headers)  # Write headers once
 
-        # num_processes_cpu = os.cpu_count()
-        # num_processes = num_processes_cpu // 2
-        with ProcessPoolExecutor(max_workers=7) as executor:
+        num_processes_cpu = os.cpu_count()
+        num_processes = num_processes_cpu // 2
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
             futures = []
             for use_decompose in if_use_decompose:
-                for pkid, problems in enumerate(problems_pkg):
-                    for pbid, problem in enumerate(problems):
-                        for num_layers in layers:
-                            future = executor.submit(process_layer, problem, use_decompose, num_layers, feedback)
-                            futures.append((future, pkid, pbid, use_decompose, num_layers))
+                for pbid, problem in enumerate(problems):
+                    for num_layers in layers:
+                        future = executor.submit(process_layer, problem, use_decompose, num_layers, feedback)
+                        futures.append((future, pbid, use_decompose, num_layers))
 
             start_time = time.perf_counter()
-            for future, pkid, pbid, use_decompose, num_layers in futures:
+            for future, pbid, use_decompose, num_layers in futures:
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
@@ -83,17 +77,17 @@ if __name__ == '__main__':
                     result = future.result(timeout=remaining_time)
                     for dict_term in feedback:
                         diff.append(result[dict_term])
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} executed successfully.")
+                    print(f"Task for problem {pbid}, use_decompose {use_decompose}, num_layers {num_layers} executed successfully.")
                 except MemoryError:
                     for dict_term in feedback:
                         diff.append('memory_error')
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} encountered a MemoryError.")
+                    print(f"Task for problem {pbid}, use_decompose {use_decompose}, num_layers {num_layers} encountered a MemoryError.")
                 except TimeoutError:
                     for dict_term in feedback:
                         diff.append('timeout')
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} timed out.")
+                    print(f"Task for problem {pbid}, use_decompose {use_decompose}, num_layers {num_layers} timed out.")
                 finally:
-                    row = [pkid, pbid, num_layers, use_decompose] + diff
+                    row = [pbid, pbid + 5, num_layers, use_decompose] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
                     if num_complete == len(futures):
