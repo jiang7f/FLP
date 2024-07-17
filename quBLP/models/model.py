@@ -262,6 +262,11 @@ class ConstrainedBinaryOptimization(Model):
         if self._linear_constraints is None:
             return []
         return self._linear_constraints
+
+    @linear_constraints.setter
+    def linear_constraints(self, constraints):
+        self._linear_constraints = constraints
+
     
     @property
     def constraints_classify_cyclic_others(self):
@@ -334,7 +339,7 @@ class ConstrainedBinaryOptimization(Model):
             circuit_option.objective_func = objective_func_map.get(self.algorithm_optimization_method)
 
         try:
-            collapse_state, probs = solve(optimizer_option, circuit_option)
+            collapse_state, probs, iteration_count = solve(optimizer_option, circuit_option)
         except QuickFeedbackException as qfe:
             return qfe.data
         self.collapse_state=collapse_state
@@ -372,7 +377,7 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'in_constraint_probs: {in_constraints_probs}')
         ARG = abs((mean_cost - best_cost) / best_cost)
         iprint(f'ARG: {ARG}')
-        return ARG, in_constraints_probs, best_solution_probs
+        return ARG, in_constraints_probs, best_solution_probs, iteration_count
 
     def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption) -> None: 
         # 最多非零元素的列索引, 对该比特冻结
@@ -415,8 +420,8 @@ class ConstrainedBinaryOptimization(Model):
         print('term_list', circuit_option.objective_func_term_list)
         
         print(self.linear_constraints)
-        circuit_option.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
-        print(circuit_option.linear_constraints)
+        # self.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
+        print(self.linear_constraints)
         ###################################
         print("==========")
         # circuit_option.Hd_bits_list  = self.driver_bitstr

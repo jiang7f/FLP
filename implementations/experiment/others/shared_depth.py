@@ -38,7 +38,7 @@ for sv in problems:
             row.extend([data[l - 1][dict_term] for l in layers])
         csv_data.append(row)
 
-csv_filename = '../../data/SV/shared_linear_depth.csv'
+csv_filename = '../../data/others/shared_linear_depth.csv'
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(csv_data)

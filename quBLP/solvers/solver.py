@@ -27,12 +27,14 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     iprint(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
     # 进行参数优化
     if optimizer_option.params_optimization_method == 'Adam':
-        best_params = train_gradient(optimizer_option)
+        best_params, iteration_count = train_gradient(optimizer_option)
     elif optimizer_option.params_optimization_method == 'COBYLA':
-        best_params = train_non_gradient(optimizer_option)
+        best_params, iteration_count = train_non_gradient(optimizer_option)
     collapse_state, probs = circuit.inference(best_params)
     iprint(f"best_params: {best_params}") #-
-    return collapse_state, probs
+    print(iteration_count)
+    print("===========")
+    return collapse_state, probs, iteration_count
 
 
     

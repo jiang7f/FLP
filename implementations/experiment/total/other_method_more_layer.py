@@ -11,7 +11,7 @@ from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
-random.seed(0x7ff)
+random.seed(0x7fff)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -21,8 +21,8 @@ optimizer_option = OptimizerOption(
     max_iter=150
 )
 flp_problems_pkg, flp_configs_pkg = generater.generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(10, [(3, 1), (3, 2), (4, 2), (4, 3)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(10, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 
 problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_problems_pkg), enumerate(kpp_problems_pkg)))
 
@@ -32,9 +32,9 @@ with open(f"{new_path}.config", "w") as file:
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')
 
-layers = range(1, 6)
-methods = ['penalty', 'cyclic', 'commute', 'HEA']
-evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
+layers = range(5, 11)
+methods = ['penalty', 'cyclic', 'HEA']
+evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs']
 headers = ['pkid', 'pbid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 
 def process_layer(prb, num_layers, method):
@@ -52,7 +52,7 @@ def process_layer(prb, num_layers, method):
 
 if __name__ == '__main__':
     all_start_time = time.perf_counter()
-    set_timeout = 60 * 60 * 24 # Set timeout duration
+    set_timeout = 60 * 60 * 24 * 7 # Set timeout duration
     num_complete = 0
     print(new_path)
     with open(f'{new_path}.csv', mode='w', newline='') as file:
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                 if method == 'commute':
                     num_processes = num_processes_cpu // 2
                 else:
-                    num_processes = 2**(4 - diff_level)
+                    num_processes = 2**(5 - diff_level)
                 with ProcessPoolExecutor(max_workers=num_processes) as executor:
                     futures = []
                     for layer in layers: 

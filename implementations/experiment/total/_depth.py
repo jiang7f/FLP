@@ -11,7 +11,7 @@ from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
-random.seed(0x7fff)
+random.seed(0x7ff)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -21,31 +21,31 @@ optimizer_option = OptimizerOption(
     max_iter=150
 )
 
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(9, [3, 3, 3], 8), (8, [2, 2, 4], 7), (7, [2, 2, 3], 6), (6, [2, 2, 2], 5), (5, [1, 2, 2], 4), (6, [3, 3], 3), (3, [1, 1, 1], 2)], 1, 20)
-# kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(3, [1, 1, 1], 2), (6, [3, 3], 3), (5, [1, 2, 2], 4), (6, [2, 2, 2], 5), (7, [2, 2, 3], 6), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
-problems_pkg = kpp_problems_pkg
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(1, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(1, [(3, 1), (3, 2), (4, 2), (4, 3)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
 
-configs_pkg = kpp_configs_pkg
+problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_problems_pkg), enumerate(kpp_problems_pkg)))
+
+configs_pkg = flp_configs_pkg + gcp_configs_pkg + kpp_configs_pkg
 with open(f"{new_path}.config", "w") as file:
     for pkid, configs in enumerate(configs_pkg):
-        for pbid, problem in enumerate(configs):
-            file.write(f'{pkid}-{pbid}: {problem}\n')
+        for problem in configs:
+            file.write(f'{pkid}: {problem}\n')
 
-layers = range(1, 2)
 # mcx_modes = ['constant', 'linear']
-if_use_decompose = [True, False]
-feedback = ['transpile_time', 'depth', 'culled_depth', 'rss_usage']
+feedback = ['depth', 'culled_depth']
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
+headers = ["pkid", 'layers'] + feedback
 
-headers = ["pkid", 'pbid', 'layers', "use_decompose"] + feedback
-
-def process_layer(prb, use_decompose, num_layers, feedback):
-    prb.set_algorithm_optimization_method('commute', 400)
+def process_layer(prb, method, feedback):
+    prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
-        num_layers=num_layers,
+        num_layers=1 if method == 'commute' else 10,
         need_draw=False,
-        use_decompose=use_decompose,
+        use_decompose=True,
         circuit_type='qiskit',
-        mcx_mode='constant',
+        mcx_mode='linear',
         backend='AerSimulator',
         feedback=feedback,
     )
@@ -63,19 +63,18 @@ if __name__ == '__main__':
         writer = csv.writer(file)
         writer.writerow(headers)  # Write headers once
 
-        # num_processes_cpu = os.cpu_count()
-        # num_processes = num_processes_cpu // 2
-        with ProcessPoolExecutor(max_workers=7) as executor:
+        num_processes_cpu = os.cpu_count()
+        with ProcessPoolExecutor(max_workers=num_processes_cpu) as executor:
             futures = []
-            for use_decompose in if_use_decompose:
-                for pkid, problems in enumerate(problems_pkg):
-                    for pbid, problem in enumerate(problems):
-                        for num_layers in layers:
-                            future = executor.submit(process_layer, problem, use_decompose, num_layers, feedback)
-                            futures.append((future, pkid, pbid, use_decompose, num_layers))
+            for method in methods:
+                for pkid, problems in problems_pkg:
+                    for problem in problems:
+                            future = executor.submit(process_layer, problem, method, feedback)
+                            futures.append((future, pkid, method))
 
             start_time = time.perf_counter()
-            for future, pkid, pbid, use_decompose, num_layers in futures:
+            for future, pkid, method in futures:
+                num_layers = 1 if method == 'commute' else 10
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
@@ -83,17 +82,17 @@ if __name__ == '__main__':
                     result = future.result(timeout=remaining_time)
                     for dict_term in feedback:
                         diff.append(result[dict_term])
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} executed successfully.")
+                    print(f"Task for problem {pkid}, num_layers {num_layers} executed successfully.")
                 except MemoryError:
                     for dict_term in feedback:
                         diff.append('memory_error')
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} encountered a MemoryError.")
+                    print(f"Task for problem {pkid}, num_layers {num_layers} encountered a MemoryError.")
                 except TimeoutError:
                     for dict_term in feedback:
                         diff.append('timeout')
-                    print(f"Task for problem {pkid}-{pbid}, use_decompose {use_decompose}, num_layers {num_layers} timed out.")
+                    print(f"Task for problem {pkid}, num_layers {num_layers} timed out.")
                 finally:
-                    row = [pkid, pbid, num_layers, use_decompose] + diff
+                    row = [pkid, method, num_layers] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
                     if num_complete == len(futures):

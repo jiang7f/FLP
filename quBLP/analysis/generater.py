@@ -17,7 +17,7 @@ def generate_flp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
             problem = FLP(m, n, transport_costs, facility_costs)
             if all(x in [-1, 0, 1]  for row in problem.driver_bitstr for x in row) : 
                 problems.append(problem)
-                configs.append((idx_scale, m, n, transport_costs, facility_costs))
+                configs.append((idx_scale, problem.num_variables, m, n, transport_costs, facility_costs))
         return problems, configs
 
     problem_list = []
@@ -45,7 +45,7 @@ def generate_gcp(max_problems_per_scale, scale_list):
             problem = GCP(num_nodes, edges_comb)
             if all(x in [-1, 0, 1]  for row in problem.driver_bitstr for x in row) : 
                 problems.append(problem)
-                configs.append((idx_scale, num_nodes, num_edges, edges_comb))
+                configs.append((idx_scale, problem.num_variables, num_nodes, num_edges, edges_comb))
         return problems, configs
 
     problem_list = []
@@ -58,9 +58,24 @@ def generate_gcp(max_problems_per_scale, scale_list):
     return problem_list, config_list
 
 def generate_kpp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
-    def generate_random_kpp(num_problems, idx_scale, num_points, block_allot, num_pairs, min_value=1, max_value=20):
+    # 给定点数和组数, 给出所有分配方案
+    def partition(number, k):
+        answer = []
+        def helper(n, k, start, current):
+            if k == 1:
+                if n >= start:
+                    answer.append(current + [n])
+                return
+            for i in range(start, n - k + 2):
+                helper(n - i, k - 1, i, current + [i])
+        helper(number, k, 1, [])
+        return answer
+    def generate_random_kpp(num_problems, idx_scale, num_points, num_allot, num_pairs, min_value=1, max_value=20):
         problems = []
         configs = []
+        block_allot_list = partition(num_points, num_allot)
+        allot_idx = 0
+        len_block_allot = len(block_allot_list)
         for _ in range(num_problems):
             pairs_connected = set()
             while len(pairs_connected) < num_pairs:
@@ -72,16 +87,18 @@ def generate_kpp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
                     if edge not in pairs_connected:
                         pairs_connected.add(edge)
             pairs_connected = [((u, v), random.randint(min_value, max_value)) for (u, v) in pairs_connected]
+            block_allot = block_allot_list[allot_idx]
+            allot_idx = (allot_idx + 1) % len_block_allot
             problem = KPP(num_points, block_allot, pairs_connected)
             if all(x in [-1, 0, 1]  for row in problem.driver_bitstr for x in row) : 
-                configs.append((idx_scale, num_points, block_allot, len(pairs_connected), pairs_connected))
                 problems.append(problem)
+                configs.append((idx_scale, problem.num_variables, num_points, block_allot, len(pairs_connected), pairs_connected))
         return problems, configs
 
     problem_list = []
     config_list = []
-    for idx_scale, (num_points, block_allot, num_pairs) in enumerate(scale_list):
-        problems, configs = generate_random_kpp(num_problems_per_scale, idx_scale, num_points, block_allot, num_pairs, min_value, max_value)
+    for idx_scale, (num_points, num_allot, num_pairs) in enumerate(scale_list):
+        problems, configs = generate_random_kpp(num_problems_per_scale, idx_scale, num_points, num_allot, num_pairs, min_value, max_value)
         problem_list.append(problems)
         config_list.append(configs)
 
@@ -90,7 +107,7 @@ def generate_kpp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
 if __name__ == '__main__':
     flp_problems_pkg, flp_configs_pkg = generate_flp(10, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
     gcp_problems_pkg, gcp_configs_pkg = generate_gcp(10, [(3, 2), (4, 1), (4, 2), (4, 3)])
-    kpp_problems_pkg, kpp_configs_pkg = generate_kpp(10, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
+    kpp_problems_pkg, kpp_configs_pkg = generate_kpp(10, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
 
     # problems = flp_problems + gcp_problems + kpp_problems
     # tem = [p for prb in problems for p in prb]

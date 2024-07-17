@@ -26,7 +26,7 @@ kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(9, [3, 3, 3], 8)
 problems_pkg = kpp_problems_pkg
 
 configs_pkg = kpp_configs_pkg
-with open(f"{new_path}_configs.txt", "w") as file:
+with open(f"{new_path}.config", "w") as file:
     for pkid, configs in enumerate(configs_pkg):
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')

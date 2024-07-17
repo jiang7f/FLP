@@ -50,7 +50,6 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
                     matrix[n + j, self.var_to_idex(self.X[i][j])] = 1
                 matrix[n + j, total_columns - 1] = self.block_allot[j]
             self._linear_constraints = matrix
-            iprint(self._linear_constraints)
         return self._linear_constraints
 
     def get_feasible_solution(self):

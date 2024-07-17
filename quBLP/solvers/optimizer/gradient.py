@@ -39,12 +39,12 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
     consecutive_no_improvement = 0  # 没有明显提升的连续迭代次数
     costs_list = []
     with tqdm(total=max_iter) as pbar:
-        for i in range(max_iter):
+        for iter in range(max_iter):
             gradients = gradient_by_param_shift(params, cost_function)
             m = beta1 * m + (1 - beta1) * gradients
             v = beta2 * v + (1 - beta2) * gradients ** 2
-            m_hat = m / (1 - beta1 ** (i + 1))
-            v_hat = v / (1 - beta2 ** (i + 1))
+            m_hat = m / (1 - beta1 ** (iter + 1))
+            v_hat = v / (1 - beta2 ** (iter + 1))
             params -= learning_rate * m_hat / (np.sqrt(v_hat) + eps)
             cost = cost_function(params)
             costs_list.append(float(cost))
@@ -72,7 +72,7 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
     plt.grid(True)  
     plt.show()
     #+
-    return best_params
+    return best_params, iter
 
 # def train_gradient(num_params, cost_function, max_iter, learning_rate, beta1, beta2):
 def train_gradient(optimizer_option: OptimizerOption):

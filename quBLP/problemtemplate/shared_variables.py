@@ -5,11 +5,8 @@ from ..models import ConstrainedBinaryOptimization
 class SharedVariables(ConstrainedBinaryOptimization):
     def __init__(self, num_qubits: int, num_shared_variales: int, fastsolve=False) -> None:
         super().__init__(fastsolve)
-        #* 设定优化方向
         self.set_optimization_direction('min')
-        # 需求点个数
         self.num_qubits = num_qubits
-        # 设施点个数
         self.num_shared_variales = num_shared_variales
         self.num_variables = num_qubits
         self.X = self.add_binary_variables('x', [num_qubits])

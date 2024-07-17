@@ -69,8 +69,6 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
     @property
     def linear_constraints(self):
         if self._linear_constraints is None:
-            from quBLP.utils import linear_system as ls
-            ls.set_print_form()
             m = self.num_graphs
             n = self.num_colors # 颜色的最大数量
             p = self.num_adjacent
@@ -87,8 +85,6 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                     matrix[m + j * p + k, self.var_to_idex(self.X[v][j])] = 1
                     matrix[m + j * p + k, self.var_to_idex(self.Y[k][j])] = -1
             self._linear_constraints = matrix
-            iprint("constraints:")
-            iprint(self._linear_constraints)
         return self._linear_constraints
     
     # def fast_solve_driver_bitstr(self):

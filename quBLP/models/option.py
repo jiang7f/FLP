@@ -22,6 +22,7 @@ class CircuitOption:
     backend: str = 'FakeAlmadenV2' #'FakeQuebec' # 'AerSimulator'\
     feedback: List = field(default_factory=list)
     log_depth: bool = False
+    shots: int = 1024
     # 
     num_qubits: int = 0
     algorithm_optimization_method: str = 'commute'

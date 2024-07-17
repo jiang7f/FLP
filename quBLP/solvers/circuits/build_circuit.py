@@ -2,7 +2,7 @@ from quBLP.utils import iprint, get_rss_usage
 import pennylane as qml
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Parameter
-from qiskit_ibm_runtime.fake_provider import FakeKyoto, FakeKyiv, FakeSherbrooke, FakeQuebec, FakeAlmadenV2
+from qiskit_ibm_runtime.fake_provider import FakeKyiv, FakeTorino, FakeBrisbane
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from ...utils.quantum_lib import *
 from qiskit_aer import AerSimulator
@@ -43,19 +43,20 @@ class QiskitCircuit:
         #+ will to delete
         iprint(circuit_option.backend)
         
-        if circuit_option.backend == 'FakeQuebec':
-            self.backend = FakeQuebec() # 新版 真机
+        if circuit_option.backend == 'FakeKyiv':
+            self.backend = FakeKyiv() # 新版 真机
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
-        elif circuit_option.backend == 'FakeAlmadenV2':  
-            self.backend = FakeAlmadenV2() # 旧版 真机
+        elif circuit_option.backend == 'FakeTorino':
+            self.backend = FakeTorino() # 新版 真机
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
-        # elif circuit_option.backend == 'AerSimulator':
+        elif circuit_option.backend == 'FakeBrisbane':
+            self.backend = FakeBrisbane() # 新版 真机
+            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
+        elif circuit_option.backend == 'AerSimulator-GPU':
+            self.backend = AerSimulator(method='statevector', device='GPU')
+            self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])
         elif circuit_option.backend == 'AerSimulator':
-            # GPU可以用 且 不需要计算rss时
-            if 'GPU' in AerSimulator().available_devices() and 'rss_usage' not in circuit_option.feedback:
-                self.backend = AerSimulator(method='statevector', device='GPU')
-            else:
-                self.backend = AerSimulator()
+            self.backend = AerSimulator()
             self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 'rz', 'sx', 'x'])
         elif circuit_option.backend == 'ddsim':
             self.backend = AerSimulator()
@@ -63,26 +64,25 @@ class QiskitCircuit:
         # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
 
 
-    def inference(self, params, shots=10000):
+    def inference(self, params):
         feedback = self.circuit_option.feedback
         if self.circuit_option.use_decompose:
             final_qc = self.inference_circuit.assign_parameters(params) # 已使用pass_manager编译过的理论电路 (只缺参数)
-
         else:
             final_qc = self.inference_circuit(params)
-        if feedback is None or feedback == [] or 'run_time' in feedback:
+        if feedback is None or not feedback or 'run_time' in feedback:
             start = perf_counter()
             options = {"simulator": {"seed_simulator": 42}}
-            if self.circuit_option.backend == 'AerSimulator':
-                sampler = Sampler(backend=self.backend, options=options)
-                result = sampler.run([final_qc],shots=shots).result()
-                pub_result = result[0]
-                counts = pub_result.data.c.get_counts()
-            elif self.circuit_option.backend == 'ddsim':
+            if self.circuit_option.backend == 'ddsim':
                 from mqt import ddsim
                 backend = ddsim.DDSIMProvider().get_backend("qasm_simulator")
-                job = backend.run(final_qc, shots=shots)
+                job = backend.run(final_qc, shots=self.circuit_option.shots)
                 counts = job.result().get_counts(final_qc)
+            else:
+                sampler = Sampler(backend=self.backend, options=options)
+                result = sampler.run([final_qc],shots=self.circuit_option.shots).result()
+                pub_result = result[0]
+                counts = pub_result.data.c.get_counts()
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:
@@ -220,10 +220,10 @@ class QiskitCircuit:
                 for i in range(num_qubits):
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)  
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = end - start
             return transpiled_qc
@@ -294,16 +294,16 @@ class QiskitCircuit:
                 for i in others_qubit_set:
                     qc.rx(Hd_params[layer], i)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = end - start
             return transpiled_qc
         
         def circuit_commute(params=None):
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             iprint("'circuit_commute' function ran once") # wait be delete
             mcx_mode = self.circuit_option.mcx_mode
@@ -327,12 +327,12 @@ class QiskitCircuit:
                 Ho_params = params[:num_layers]
                 Hd_params = params[num_layers:]
             assert len(Hd_params) == num_layers
-
-            start_rss_usage = get_rss_usage()
+            if 'rss_usage' in self.circuit_option.feedback:
+                start_rss_usage = get_rss_usage()
             Hd_bits_list = self.circuit_option.Hd_bits_list
             for i in np.nonzero(self.circuit_option.feasiable_state)[0]:
                 qc.x(i)
-            if not use_decompose and self.circuit_option.feedback is None:
+            if not use_decompose and (self.circuit_option.feedback is None or not self.circuit_option.feedback):
                 Ho = Ho_unitary(objective_func_term_list)
             for layer in range(num_layers):
                 #$ 比较分解技术的时候 Ho都分解
@@ -349,22 +349,23 @@ class QiskitCircuit:
                     if use_decompose:
                         driver_component_qiskit(qc, nonzero_indices, ancilla, hdi_string, Hd_params[layer], mcx_mode)
                     else:
-                        if self.circuit_option.feedback is None:
+                        if (self.circuit_option.feedback is None  or not self.circuit_option.feedback):
                             qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
                         else:
                             # 比较分解效果时，不优化
                             qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(hd_bits)), range(num_qubits)[::-1])
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 middle = perf_counter()
-                transpiled_qc = qc.decompose(reps=3)
-            else:
-                transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            #     transpiled_qc = qc.decompose(reps=3)
+            # else:
+            transpiled_qc = self.pass_manager.run(qc)
+            if 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = (middle - start, end - middle)
             # 计算电路的内存占用
-            self.rss_usage = get_rss_usage() - start_rss_usage
+            if 'rss_usage' in self.circuit_option.feedback:
+                self.rss_usage = get_rss_usage() - start_rss_usage
             return transpiled_qc
         
         def circuit_HEA(params=None):
@@ -387,10 +388,10 @@ class QiskitCircuit:
                 for i in range(num_qubits):
                     qc.cx(i, (i + 1) % num_qubits)
             qc.measure(range(num_qubits), range(num_qubits)[::-1])
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 start = perf_counter()
             transpiled_qc = self.pass_manager.run(qc)
-            if self.circuit_option.feedback is not None and 'transpile_time' in self.circuit_option.feedback:
+            if 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()
                 self.transpile_time = end - start
             return transpiled_qc

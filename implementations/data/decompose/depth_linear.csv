@@ -1,0 +1,15 @@
+pkid,pbid,layers,use_decompose,transpile_time,depth,culled_depth,rss_usage
+0,0,1,True,"(0.012800043914467096, 0.07825735304504633)",1549,629,4.890625
+1,0,1,True,"(0.011810652911663055, 0.06973188184201717)",1362,554,4.8828125
+2,0,1,True,"(0.010395810008049011, 0.05992890475317836)",1162,472,4.40625
+3,0,1,True,"(0.00894696731120348, 0.05035322066396475)",970,394,4.14453125
+4,0,1,True,"(0.007572595030069351, 0.040552256628870964)",785,319,3.9453125
+5,0,1,True,"(0.0055311983451247215, 0.026009284891188145)",490,199,3.703125
+6,0,1,True,"(0.004733316134661436, 0.021116749849170446)",393,159,3.48828125
+0,0,1,False,memory_error,memory_error,memory_error,memory_error
+1,0,1,False,memory_error,memory_error,memory_error,memory_error
+2,0,1,False,memory_error,memory_error,memory_error,memory_error
+3,0,1,False,memory_error,memory_error,memory_error,memory_error
+4,0,1,False,timeout,timeout,timeout,timeout
+5,0,1,False,timeout,timeout,timeout,timeout
+6,0,1,False,"(0.46383852511644363, 722.8362449347042)",1148574,488460,2137.37109375

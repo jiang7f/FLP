@@ -13,7 +13,7 @@ def train_non_gradient(optimizer_option: OptimizerOption):
 
     def train_with_scipy(params, cost_function, max_iter):
         result = minimize(cost_function, params, method='COBYLA', options={'maxiter': max_iter}, callback=callback)
-        return result.x
+        return result.x, iteration_count
     
     iteration_count = 0 
     params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
