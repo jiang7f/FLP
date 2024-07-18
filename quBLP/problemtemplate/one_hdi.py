@@ -29,7 +29,11 @@ class One_Hdi(ConstrainedBinaryOptimization):
             self._linear_constraints = matrix
             iprint(self._linear_constraints)
         return self._linear_constraints
-    
+
+    @linear_constraints.setter
+    def linear_constraints(self, constraints):
+        self._linear_constraints = constraints
+
     def get_feasible_solution(self):
         return [x.x for x in self.variables]
 

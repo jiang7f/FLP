@@ -3,7 +3,7 @@ from quBLP.utils import iprint, set_print_form
 import numpy as np
 import itertools
 from typing import Iterable, List, Callable,  Union
-from ..utils.linear_system import find_basic_solution
+from ..utils.linear_system import find_basic_solution, to_row_echelon_form
 from ..utils.parse_expr import split_expr
 from ..utils import QuickFeedbackException
 from ..solvers import solve
@@ -88,6 +88,7 @@ class ConstrainedBinaryOptimization(Model):
         self.collapse_state = None
         self.probs = None
         self.cost_dir = 0
+        self.opt_mtd = 'standard'
         pass
 
     def set_optimization_direction(self, dir):
@@ -263,17 +264,17 @@ class ConstrainedBinaryOptimization(Model):
             return []
         return self._linear_constraints
 
-    @linear_constraints.setter
-    def linear_constraints(self, constraints):
-        self._linear_constraints = constraints
-
     
     @property
     def constraints_classify_cyclic_others(self):
         if self._constraints_classify_cyclic_others is None:
             self._constraints_classify_cyclic_others = [[] for _ in range(2)]
             for cstrt in self.linear_constraints:
-                assert len(cstrt) == 1 + len(self.variables)
+                # 二分法减少一个比特
+                if self.opt_mtd == 'dichotomy':
+                    assert len(cstrt) == len(self.variables)
+                else:
+                    assert len(cstrt) == 1 + len(self.variables)
                 if set(cstrt[:-1]).issubset({0, 1}):
                     assert cstrt[-1] >= 0
                     self._constraints_classify_cyclic_others[0].append(cstrt)
@@ -284,13 +285,16 @@ class ConstrainedBinaryOptimization(Model):
 
     @property
     def driver_bitstr(self):
-        if self._driver_bitstr is None:
-            if self.fastsolve:
-                 self._driver_bitstr = self.fast_solve_driver_bitstr()
-            # 如果不使用解析的解系, 高斯消元求解
-            else:
-                self._driver_bitstr = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
-        return self._driver_bitstr
+        if self.opt_mtd == 'standard':
+            if self._driver_bitstr is None:
+                if self.fastsolve:
+                    self._driver_bitstr = self.fast_solve_driver_bitstr()
+                # 如果不使用解析的解系, 高斯消元求解
+                else:
+                    self._driver_bitstr = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
+            return self._driver_bitstr
+        else:
+            return find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
 
     def get_feasible_solution(self):
         ## find a feasible solution for the linear_constraints
@@ -379,23 +383,23 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'ARG: {ARG}')
         return ARG, in_constraints_probs, best_solution_probs, iteration_count
 
-    def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption) -> None: 
-        # 最多非零元素的列索引, 对该比特冻结
+    def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption, num_frozen_qubit=1) -> None: 
+        self.opt_mtd = 'dichotomy'
+        # 最多非零元素的列索引, 对该比特冻结 | 注意, 不是约束最多的列，是driver_bitstr最多的列
         max_non_zero_col_index = np.argmax(np.count_nonzero(self.driver_bitstr, axis=0))
         self.frozen_idx = max_non_zero_col_index
         print("冻结id", self.get_feasible_solution()[self.frozen_idx])
+        ## frozen state
+        self.frozen_state = self.get_feasible_solution()[self.frozen_idx]
+
         circuit_option.num_qubits = len(self.variables) - 1
         circuit_option.algorithm_optimization_method = self.algorithm_optimization_method
         circuit_option.penalty_lambda = self.penalty_lambda
         #+++ 这样只冻结了一种形态, 另一种形态待补
-
         print("feasible:", self.get_feasible_solution())
         circuit_option.feasiable_state = np.delete(self.get_feasible_solution(), self.frozen_idx, axis=0)
         print("feasible:", circuit_option.feasiable_state)
         
-        ## frozen state
-        # self.frozen_state = 0
-        self.frozen_state = self.get_feasible_solution()[self.frozen_idx]
         def process_objective_term_list(objective_iterm_list, frozen_idx, frozen_state):
             process_list = []
             for dimension in objective_iterm_list:
@@ -404,33 +408,35 @@ class ConstrainedBinaryOptimization(Model):
                     if frozen_state == 0 and frozen_idx in objective_term[0]:
                         # 如果 frozen_state == 0 且 x 在内层列表中，移除整个term
                         continue
-                    elif frozen_state == 1 and frozen_idx in objective_term[0]:
-                        # 如果 frozen_state == 1 且 x 在内层列表中，移除term中的 x
-                        iterm = [varbs for varbs in objective_term[0] if varbs != frozen_idx]
-                        if iterm:
-                            dimension_list.append([iterm, objective_term[1]])
                     else:
-                        # 否则保留 inner_list
-                        dimension_list.append(objective_term)
+                        iterm = objective_term[0]
+                        if frozen_state == 1 and frozen_idx in objective_term[0]:
+                            # 如果 frozen_state == 1 且 x 在内层列表中，移除term中的 x
+                            iterm = [varbs for varbs in objective_term[0] if varbs != frozen_idx]
+                        if iterm:
+                            iterm = [x - 1 if x > self.frozen_idx else x for x in iterm]
+                            dimension_list.append([iterm, objective_term[1]])
                 # 空维度也要占位
                 process_list.append(dimension_list)
             return process_list
         print('term_list', self.objective_func_term_list)
         circuit_option.objective_func_term_list = process_objective_term_list(self.objective_func_term_list, self.frozen_idx, self.frozen_state)
         print('term_list', circuit_option.objective_func_term_list)
-        
+        # 调整约束矩阵 1 修改常数列(c - frozen_state * frozen_idx), 2 剔除 frozen 列
         print(self.linear_constraints)
-        # self.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
-        print(self.linear_constraints)
-        ###################################
-        print("==========")
-        # circuit_option.Hd_bits_list  = self.driver_bitstr
-
-        exit()
+        self.linear_constraints[:,-1] -= self.linear_constraints[:, self.frozen_idx] * self.frozen_state
+        self.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
+        print(f'self.linear_constraints: {self.linear_constraints}')
         circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
         circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
+        circuit_option.Hd_bits_list = to_row_echelon_form(self.driver_bitstr)
+        # circuit_option.Hd_bits_list = self.driver_bitstr
+
+        print(f'circuit_option.constraints_for_cyclic{circuit_option.constraints_for_cyclic}')
         iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
         iprint(f'driver_bit_stirng:\n {self.driver_bitstr}') #-
+        # circuit_option.Hd_bits_list  = self.driver_bitstr
+        ###################################
         objective_func_map = {
             'penalty': self.objective_penalty,
             'cyclic': self.objective_cyclic,
@@ -438,25 +444,29 @@ class ConstrainedBinaryOptimization(Model):
             'HEA': self.objective_penalty
         }
         if self.algorithm_optimization_method in objective_func_map:
-            circuit_option.objective_func = objective_func_map.get(self.algorithm_optimization_method)
-
+            def objective_func(variables:Iterable):
+                front = variables[:self.frozen_idx]
+                back = variables[self.frozen_idx:]
+                return objective_func_map.get(self.algorithm_optimization_method)(front + [self.frozen_state] + back)
+            # 待优化写法
+            def objective_penalty_func(variables:Iterable):
+                front = variables[:self.frozen_idx]
+                back = variables[self.frozen_idx:]
+                return objective_func_map.get('penalty')(front + [self.frozen_state] + back)
+            circuit_option.objective_func = objective_func
         try:
-            collapse_state, probs = solve(optimizer_option, circuit_option)
+            collapse_state, probs, iteration_count = solve(optimizer_option, circuit_option)
         except QuickFeedbackException as qfe:
             return qfe.data
         self.collapse_state=collapse_state
         self.probs=probs
-        # collapse_state_str = [''.join([str(x) for x in state]) for state in collapse_state]
-        # iprint(dict(zip(collapse_state_str, probs)))
-
-
         # 找到最优解和最优解的cost / by groubi
         best_cost = self.get_best_cost()
         iprint(f'best_cost: {best_cost}')
         mean_cost = 0
         best_solution_probs = 0
         for c, p in zip(collapse_state, probs):
-            pcost = self.cost_dir * self.objective_penalty(c)
+            pcost = self.cost_dir * objective_penalty_func(c)
             if p >= 1e-3:
                 iprint(f'{c}: {pcost} - {p}')
             if pcost == best_cost:
@@ -472,6 +482,7 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'best_solution_probs: {best_solution_probs}')
         iprint(f"mean_cost: {mean_cost}")
         in_constraints_probs = 0
+        print(self.linear_constraints)
         for cs, pr in zip(self.collapse_state, self.probs):
             if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
                 in_constraints_probs += pr
@@ -479,7 +490,8 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'in_constraint_probs: {in_constraints_probs}')
         ARG = abs((mean_cost - best_cost) / best_cost)
         iprint(f'ARG: {ARG}')
-        return ARG, in_constraints_probs, best_solution_probs
+        return ARG, in_constraints_probs, best_solution_probs, iteration_count
 
-        
+
+
 

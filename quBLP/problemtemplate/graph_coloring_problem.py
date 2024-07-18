@@ -86,7 +86,10 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                     matrix[m + j * p + k, self.var_to_idex(self.Y[k][j])] = -1
             self._linear_constraints = matrix
         return self._linear_constraints
-    
+
+    @linear_constraints.setter
+    def linear_constraints(self, constraints):
+        self._linear_constraints = constraints
     # def fast_solve_driver_bitstr(self):
 
     

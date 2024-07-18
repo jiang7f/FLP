@@ -43,7 +43,7 @@ headers = ["pkid", 'layers', 'method', 'backend'] + feedback
 def process_layer(prb, method, backend):
     prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
-        num_layers=1 if method == 'commute' else 10,
+        num_layers=1 if method == 'commute' else 7,
         need_draw=False,
         use_decompose=True,
         circuit_type='qiskit',

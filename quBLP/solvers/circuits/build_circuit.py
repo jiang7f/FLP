@@ -263,6 +263,8 @@ class QiskitCircuit:
                     # constraints_for_cyclic --> 驱动哈密顿量
                     for cyclic_mi in constraints_for_cyclic:
                         nzlist = np.nonzero(cyclic_mi[:-1])[0]
+                        if len(nzlist) < 2:
+                            continue
                         for i in range(len(nzlist)):
                             j = (i + 1) % len(nzlist)
                             ## gate for X_iX_j
@@ -361,7 +363,7 @@ class QiskitCircuit:
             # else:
             transpiled_qc = self.pass_manager.run(qc)
             if 'transpile_time' in self.circuit_option.feedback:
-                end = perf_counter()
+                end = perf_counter()   
                 self.transpile_time = (middle - start, end - middle)
             # 计算电路的内存占用
             if 'rss_usage' in self.circuit_option.feedback:
@@ -415,7 +417,7 @@ class QiskitCircuit:
                 costs += self.circuit_option.objective_func(value) * prob
             return costs
         return circuit_cost_function
-    
+    # qiskit draw 会经过 transpile, 如果 decompose = False 请看 pennylane
     def draw_circuit(self) -> None:
         # 待修改
         if self.circuit_option.use_decompose:

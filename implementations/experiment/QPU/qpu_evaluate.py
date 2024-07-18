@@ -33,7 +33,7 @@ with open(f"{new_path}.config", "w") as file:
         for problem in configs:
             file.write(f'{pkid}: {problem}\n')
 
-methods = ['commute','commute']
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
 backends = ['FakeKyiv', 'FakeTorino', 'FakeBrisbane']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
 shotss = [16, 64, 256, 1024, 4096]
@@ -65,7 +65,7 @@ if __name__ == '__main__':
         writer.writerow(headers)  # Write headers once
 
         num_processes_cpu = os.cpu_count()
-        with ProcessPoolExecutor(max_workers=30) as executor:
+        with ProcessPoolExecutor(max_workers=(num_processes_cpu // 4)) as executor:
             futures = []
             for backend in backends:
                 for shots in shotss:

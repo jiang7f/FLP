@@ -68,7 +68,11 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
                 matrix[n * m + i, total_columns - 1] = 1
             self._linear_constraints = matrix
         return self._linear_constraints
-    
+
+    @linear_constraints.setter
+    def linear_constraints(self, constraints):
+        self._linear_constraints = constraints
+
     def fast_solve_driver_bitstr(self):
         n, m  = self.num_facilities,self.num_demands
         # 自由变量个数

@@ -52,6 +52,10 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
             self._linear_constraints = matrix
         return self._linear_constraints
 
+    @linear_constraints.setter
+    def linear_constraints(self, constraints):
+        self._linear_constraints = constraints
+
     def get_feasible_solution(self):
         """ 根据约束寻找到一个可行解
         """
