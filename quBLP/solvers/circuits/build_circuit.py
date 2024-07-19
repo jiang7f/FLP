@@ -45,15 +45,10 @@ class QiskitCircuit:
 
         if circuit_option.IBM == True:
             service = get_IBM_service()
-            if circuit_option.backend == 'Kyiv':
-                self.backend = service.backend("ibm_kyiv")
-            elif circuit_option.backend == 'Torino':
-                self.backend = service.backend("ibm_torino")
-            elif circuit_option.backend == 'Brisbane':
-                self.backend = service.backend("ibm_brisbane")
+            self.backend = service.backend(circuit_option.backend)
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
 
-        if circuit_option.backend == 'FakeKyiv':
+        elif circuit_option.backend == 'FakeKyiv':
             self.backend = FakeKyiv()
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'FakeTorino':
@@ -92,13 +87,19 @@ class QiskitCircuit:
                 job = backend.run(final_qc, shots=self.circuit_option.shots)
                 counts = job.result().get_counts(final_qc)
             else:
-                sampler = Sampler(backend=self.backend, options=options)
-                result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
-                if self.circuit_option.IBM == True:
-                    pass
-                else:  
-                    pub_result = result[0]
-                    counts = pub_result.data.c.get_counts()
+                if self.circuit_option.IBM:
+                    sampler = Sampler(backend=self.backend)
+                else:
+                    sampler = Sampler(backend=self.backend, options=options)
+                job = sampler.run([final_qc], shots=self.circuit_option.shots)
+                while not job.done():
+                    print(f'State: {job.status()}')
+                    import time
+                    time.sleep(5)
+                result = job.result()
+                # result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
+                pub_result = result[0]
+                counts = pub_result.data.c.get_counts()
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:

@@ -12,6 +12,6 @@ def get_IBM_service():
                 ibm_cloud_api = line.split('=')[1].strip().strip("'")
             elif line.startswith('ibm_cloud_crn'):
                 ibm_cloud_crn = line.split('=')[1].strip().strip("'")
-    print(ibm_cloud_crn)
     service = QiskitRuntimeService(channel='ibm_cloud', token=ibm_cloud_api, instance=ibm_cloud_crn)
+    print(f'IBM service created successfully')
     return service
