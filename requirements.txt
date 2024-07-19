@@ -9,3 +9,4 @@ networkx
 matplotlib
 numpy
 mqt.ddsim
+gurobipy

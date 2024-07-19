@@ -9,6 +9,7 @@ from ..utils import QuickFeedbackException
 from ..solvers import solve
 from dataclasses import dataclass, field
 from .option import OptimizerOption, CircuitOption
+import gurobipy as gp
 
 class Model:
     def __init__(self) -> None:
@@ -214,11 +215,11 @@ class ConstrainedBinaryOptimization(Model):
             coefficients (Iterable): [c_0, c_1,..., c_n-1] represents c_0*x_0 + c_1*x_1 + ... + c_n-1*x_n-1
         """
         for i in range(len(coefficients)):
-            self.objective_func_term_list[0].append([[i], coefficients[i]])
+            self.objective_func_term_list[0].append(([i], coefficients[i]))
             # self.objective_matrix[i][i] = coefficients
     
     def add_nonlinear_objective(self, term_list: Iterable, coefficient):
-        self.objective_func_term_list[len(term_list) - 1].append([term_list, coefficient])
+        self.objective_func_term_list[len(term_list) - 1].append((term_list, coefficient))
 
     def add_eq_constraint(self, coefficients: Iterable, variable):
         """_summary_
@@ -268,13 +269,17 @@ class ConstrainedBinaryOptimization(Model):
     @property
     def constraints_classify_cyclic_others(self):
         if self._constraints_classify_cyclic_others is None:
+            if self.opt_mtd == 'standard':
+                linear_constraints = self.linear_constraints
+            elif self.opt_mtd == 'dichotomy':
+                linear_constraints = self.dctm_linear_constraints
             self._constraints_classify_cyclic_others = [[] for _ in range(2)]
-            for cstrt in self.linear_constraints:
-                # 二分法减少一个比特
-                if self.opt_mtd == 'dichotomy':
-                    assert len(cstrt) == len(self.variables)
-                else:
+            for cstrt in linear_constraints:
+                if self.opt_mtd == 'standard':
                     assert len(cstrt) == 1 + len(self.variables)
+                # 二分法减少一个比特
+                elif self.opt_mtd == 'dichotomy':
+                    assert len(cstrt) == 1 + len(self.variables) - self.num_frozen_qubit
                 if set(cstrt[:-1]).issubset({0, 1}):
                     assert cstrt[-1] >= 0
                     self._constraints_classify_cyclic_others[0].append(cstrt)
@@ -285,16 +290,16 @@ class ConstrainedBinaryOptimization(Model):
 
     @property
     def driver_bitstr(self):
-        if self.opt_mtd == 'standard':
-            if self._driver_bitstr is None:
-                if self.fastsolve:
-                    self._driver_bitstr = self.fast_solve_driver_bitstr()
-                # 如果不使用解析的解系, 高斯消元求解
-                else:
-                    self._driver_bitstr = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
-            return self._driver_bitstr
-        else:
-            return find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
+        if self._driver_bitstr is None:
+            if self.fastsolve:
+                self._driver_bitstr = self.fast_solve_driver_bitstr()
+            # 如果不使用解析的解系, 高斯消元求解
+            else:
+                self._driver_bitstr = find_basic_solution(self.linear_constraints[:,:-1]) if len(self.linear_constraints) > 0 else []
+        return self._driver_bitstr
+    @property
+    def dctm_driver_bitstr(self):
+        return find_basic_solution(self.dctm_linear_constraints[:,:-1]) if len(self.dctm_linear_constraints) > 0 else []
 
     def get_feasible_solution(self):
         ## find a feasible solution for the linear_constraints
@@ -383,114 +388,176 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'ARG: {ARG}')
         return ARG, in_constraints_probs, best_solution_probs, iteration_count
 
-    def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption, num_frozen_qubit=1) -> None: 
+    def dichotomy_optimize(self, optimizer_option: OptimizerOption, circuit_option: CircuitOption, num_frozen_qubit: int = 1) -> None: 
         self.opt_mtd = 'dichotomy'
+        self.num_frozen_qubit = num_frozen_qubit
+        iprint(self.driver_bitstr)
+        iprint()
         # 最多非零元素的列索引, 对该比特冻结 | 注意, 不是约束最多的列，是driver_bitstr最多的列
-        max_non_zero_col_index = np.argmax(np.count_nonzero(self.driver_bitstr, axis=0))
-        self.frozen_idx = max_non_zero_col_index
-        print("冻结id", self.get_feasible_solution()[self.frozen_idx])
-        ## frozen state
-        self.frozen_state = self.get_feasible_solution()[self.frozen_idx]
+        iprint(self.driver_bitstr)
+        non_zero_counts = np.count_nonzero(self.driver_bitstr, axis=0)
+        sorted_indices = np.argsort(non_zero_counts)[::-1][:num_frozen_qubit]
+        self.frozen_idx_list = sorted(sorted_indices)
+        # self.frozen_idx_list = [1, 4]
 
-        circuit_option.num_qubits = len(self.variables) - 1
-        circuit_option.algorithm_optimization_method = self.algorithm_optimization_method
-        circuit_option.penalty_lambda = self.penalty_lambda
-        #+++ 这样只冻结了一种形态, 另一种形态待补
-        print("feasible:", self.get_feasible_solution())
-        circuit_option.feasiable_state = np.delete(self.get_feasible_solution(), self.frozen_idx, axis=0)
-        print("feasible:", circuit_option.feasiable_state)
-        
-        def process_objective_term_list(objective_iterm_list, frozen_idx, frozen_state):
-            process_list = []
-            for dimension in objective_iterm_list:
-                dimension_list = []
-                for objective_term in dimension:
-                    if frozen_state == 0 and frozen_idx in objective_term[0]:
-                        # 如果 frozen_state == 0 且 x 在内层列表中，移除整个term
-                        continue
-                    else:
-                        iterm = objective_term[0]
-                        if frozen_state == 1 and frozen_idx in objective_term[0]:
-                            # 如果 frozen_state == 1 且 x 在内层列表中，移除term中的 x
-                            iterm = [varbs for varbs in objective_term[0] if varbs != frozen_idx]
-                        if iterm:
-                            iterm = [x - 1 if x > self.frozen_idx else x for x in iterm]
-                            dimension_list.append([iterm, objective_term[1]])
-                # 空维度也要占位
-                process_list.append(dimension_list)
-            return process_list
-        print('term_list', self.objective_func_term_list)
-        circuit_option.objective_func_term_list = process_objective_term_list(self.objective_func_term_list, self.frozen_idx, self.frozen_state)
-        print('term_list', circuit_option.objective_func_term_list)
-        # 调整约束矩阵 1 修改常数列(c - frozen_state * frozen_idx), 2 剔除 frozen 列
-        print(self.linear_constraints)
-        self.linear_constraints[:,-1] -= self.linear_constraints[:, self.frozen_idx] * self.frozen_state
-        self.linear_constraints = np.delete(self.linear_constraints, self.frozen_idx, axis=1)
-        print(f'self.linear_constraints: {self.linear_constraints}')
-        circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
-        circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
-        circuit_option.Hd_bits_list = to_row_echelon_form(self.driver_bitstr)
-        # circuit_option.Hd_bits_list = self.driver_bitstr
+        def find_feasible_solution_with_gurobi(A, fixed_values=None):
+            num_vars = A.shape[1] - 1  # Number of variables
+            # Create a new model
+            model = gp.Model("feasible_solution")
+            model.setParam('OutputFlag', 0)
+            # Create variables
+            variables = []
+            for i in range(num_vars):
+                variables.append(model.addVar(vtype=gp.GRB.BINARY, name=f"x{i}"))
+            # Set objective (minimization problem, but no objective here since we just need a feasible solution)
+            # Add constraints
+            for i in range(A.shape[0]):
+                lhs = gp.quicksum(A[i, j] * variables[j] for j in range(num_vars))
+                rhs = A[i, -1]
+                model.addConstr(lhs == rhs)
+                
+            # Add fixed values constraints
+            if fixed_values:
+                idx, fix = fixed_values
+                for i, f in zip(idx, fix):
+                    model.addConstr(variables[i] == f)
+            
+            model.optimize()
+            
+            if model.status == gp.GRB.Status.OPTIMAL:
+                # Retrieve solution
+                solution = [int(variables[i].x) for i in range(num_vars)]
+                return solution
+            else:
+                return None
+        ARG_list = []
+        in_constraints_probs_list = []
+        best_solution_probs_list = []
+        iteration_count_list = []
+        for i in range(2**num_frozen_qubit):
+            self.frozen_state_list = [int(j) for j in list(bin(i)[2:].zfill(num_frozen_qubit))]
+            # 调整约束矩阵 1 修改常数列(c - frozen_state * frozen_idx), 2 剔除 frozen 列
+            dctm_linear_constraints = self.linear_constraints.copy()
+            iprint(f'self.linear_constraints:\n {self.linear_constraints}')
+            for idx, state in zip(self.frozen_idx_list, self.frozen_state_list):
+                dctm_linear_constraints[:,-1] -= dctm_linear_constraints[:, idx] * state
+            self.dctm_linear_constraints = np.delete(dctm_linear_constraints, self.frozen_idx_list, axis=1)
+            iprint(f'self.dichotomy_linear_constraints:\n {self.dctm_linear_constraints}')
+            dctm_feasible_solution = find_feasible_solution_with_gurobi(self.dctm_linear_constraints)
+            if dctm_feasible_solution is None:
+                continue
+            # circuit_option.feasiable_state = np.delete(self.get_feasible_solution(), self.frozen_idx, axis=0)
+            circuit_option.feasiable_state = dctm_feasible_solution
 
-        print(f'circuit_option.constraints_for_cyclic{circuit_option.constraints_for_cyclic}')
-        iprint(f'fsb_state: {circuit_option.feasiable_state}') #-
-        iprint(f'driver_bit_stirng:\n {self.driver_bitstr}') #-
-        # circuit_option.Hd_bits_list  = self.driver_bitstr
-        ###################################
-        objective_func_map = {
-            'penalty': self.objective_penalty,
-            'cyclic': self.objective_cyclic,
-            'commute': self.objective_commute,
-            'HEA': self.objective_penalty
-        }
-        if self.algorithm_optimization_method in objective_func_map:
-            def objective_func(variables:Iterable):
-                front = variables[:self.frozen_idx]
-                back = variables[self.frozen_idx:]
-                return objective_func_map.get(self.algorithm_optimization_method)(front + [self.frozen_state] + back)
-            # 待优化写法
-            def objective_penalty_func(variables:Iterable):
-                front = variables[:self.frozen_idx]
-                back = variables[self.frozen_idx:]
-                return objective_func_map.get('penalty')(front + [self.frozen_state] + back)
-            circuit_option.objective_func = objective_func
-        try:
-            collapse_state, probs, iteration_count = solve(optimizer_option, circuit_option)
-        except QuickFeedbackException as qfe:
-            return qfe.data
-        self.collapse_state=collapse_state
-        self.probs=probs
-        # 找到最优解和最优解的cost / by groubi
-        best_cost = self.get_best_cost()
-        iprint(f'best_cost: {best_cost}')
-        mean_cost = 0
-        best_solution_probs = 0
-        for c, p in zip(collapse_state, probs):
-            pcost = self.cost_dir * objective_penalty_func(c)
-            if p >= 1e-3:
-                iprint(f'{c}: {pcost} - {p}')
-            if pcost == best_cost:
-                best_solution_probs += p
-            mean_cost += pcost * p
-        best_solution_probs *= 100
+            circuit_option.num_qubits = len(self.variables) - len(self.frozen_idx_list)
+            circuit_option.algorithm_optimization_method = self.algorithm_optimization_method
+            circuit_option.penalty_lambda = self.penalty_lambda
+            #+++ 这样只冻结了一种形态, 另一种形态待补
+            iprint(f"frzoen_idx_list{self.frozen_idx_list}")
+            iprint(f"frzoen_state_list{self.frozen_state_list}")
+            iprint("feasible:", circuit_option.feasiable_state)
+            # 处理剔除 frozen_qubit 后的目标函数    
+            def process_objective_term_list(objective_iterm_list, frozen_idx_list, frozen_state_list):
+                process_list = []
+                zero_indices = [frozen_idx_list[i] for i, x in enumerate(frozen_state_list) if x == 0]
+                nonzero_indices = [i for i in frozen_idx_list if i not in zero_indices]
+                frozen_idx_list = np.array(frozen_idx_list)
+                for dimension in objective_iterm_list:
+                    dimension_list = []
+                    for objective_term in dimension:
+                        if any(idx in objective_term[0] for idx in zero_indices):
+                            # 如果 frozen_state == 0 且 x 在内层列表中，移除整个iterm
+                            continue
+                        else:
+                            # 如果 frozen_state == 1 且 x 在内层列表中，移除iterm中的 x
+                            iterm = [varbs for varbs in objective_term[0] if varbs not in nonzero_indices]
+                            iterm = [x - np.sum(frozen_idx_list < x) for x in iterm]
+                            if iterm:
+                                dimension_list.append((iterm, objective_term[1]))
+                    # 空维度也要占位
+                    process_list.append(dimension_list)
+                return process_list
+            circuit_option.objective_func_term_list = process_objective_term_list(self.objective_func_term_list, self.frozen_idx_list, self.frozen_state_list)
+            iprint('term_list', circuit_option.objective_func_term_list)
+            circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
+            circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
+            circuit_option.Hd_bits_list = to_row_echelon_form(self.dctm_driver_bitstr)
+            iprint(f'Hd_bits_list:\n {circuit_option.Hd_bits_list}') #-
+            iprint(self.dctm_driver_bitstr)
+            ###################################
+            objective_func_map = {
+                'penalty': self.objective_penalty,
+                'cyclic': self.objective_cyclic,
+                'commute': self.objective_commute,
+                'HEA': self.objective_penalty
+            }
+            dctm_objective_func_map = {
+                'penalty': self.objective_penalty,
+                'cyclic': self.objective_cyclic,
+                'commute': self.objective_commute,
+                'HEA': self.objective_penalty
+            }
+            # if self.algorithm_optimization_method in objective_func_map:
+            def dctm_objective_func_map(method: str):
+                def dctm_objective_func(variables: Iterable):
+                    def insert_states(filtered_list, idx_list, state_list):
+                        result = []
+                        state_index = 0
+                        filtered_index = 0
 
-        #+ 输出最大概率解
-        maxprobidex = np.argmax(probs)
-        max_prob_solution = collapse_state[maxprobidex]
-        cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
-        iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
-        iprint(f'best_solution_probs: {best_solution_probs}')
-        iprint(f"mean_cost: {mean_cost}")
-        in_constraints_probs = 0
-        print(self.linear_constraints)
-        for cs, pr in zip(self.collapse_state, self.probs):
-            if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
-                in_constraints_probs += pr
-        in_constraints_probs *= 100
-        iprint(f'in_constraint_probs: {in_constraints_probs}')
-        ARG = abs((mean_cost - best_cost) / best_cost)
-        iprint(f'ARG: {ARG}')
-        return ARG, in_constraints_probs, best_solution_probs, iteration_count
+                        for i in range(len(filtered_list) + len(state_list)):
+                            if i in idx_list:
+                                result.append(state_list[state_index])
+                                state_index += 1
+                            else:
+                                result.append(filtered_list[filtered_index])
+                                filtered_index += 1
+                        return result
+                    return objective_func_map.get(method)(insert_states(variables, self.frozen_idx_list, self.frozen_state_list))
+                return dctm_objective_func
+                    
+                # 待优化写法
+            circuit_option.objective_func = dctm_objective_func_map(self.algorithm_optimization_method)
+            try:
+                collapse_state, probs, iteration_count = solve(optimizer_option, circuit_option)
+            except QuickFeedbackException as qfe:
+                return qfe.data
+            self.collapse_state=collapse_state
+            self.probs=probs
+            # 找到最优解和最优解的cost / by groubi
+            best_cost = self.get_best_cost()
+            iprint(f'best_cost: {best_cost}')
+            mean_cost = 0
+            best_solution_probs = 0
+            for c, p in zip(collapse_state, probs):
+                pcost = self.cost_dir * dctm_objective_func_map('penalty')(c)
+                if p >= 1e-3:
+                    iprint(f'{c}: {pcost} - {p}')
+                if pcost == best_cost:
+                    best_solution_probs += p
+                mean_cost += pcost * p
+            best_solution_probs *= 100
+
+            #+ 输出最大概率解
+            maxprobidex = np.argmax(probs)
+            max_prob_solution = collapse_state[maxprobidex]
+            cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
+            iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
+            iprint(f'best_solution_probs: {best_solution_probs}')
+            iprint(f"mean_cost: {mean_cost}")
+            in_constraints_probs = 0
+            for cs, pr in zip(self.collapse_state, self.probs):
+                if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]):
+                    in_constraints_probs += pr
+            in_constraints_probs *= 100
+            iprint(f'in_constraint_probs: {in_constraints_probs}')
+            ARG = abs((mean_cost - best_cost) / best_cost)
+            iprint(f'ARG: {ARG}')
+            ARG_list.append(ARG)
+            in_constraints_probs_list.append(in_constraints_probs)
+            best_solution_probs_list.append(best_solution_probs)
+            iteration_count_list.append(iteration_count)
+        return ARG_list, in_constraints_probs_list, best_solution_probs_list, iteration_count_list  
 
 
 

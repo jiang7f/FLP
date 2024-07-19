@@ -1,11 +1,11 @@
 import pandas as pd
 
-file_path = 'evaluate.csv'
+file_path = 'qpu_evaluate.csv'
 df = pd.read_csv(file_path)
 
-df = df.drop(columns=['pbid'])
+# df = df.drop(columns=['pbid'])
 
-grouped_df = df.groupby(['pkid', 'layers', 'variables', 'constraints', 'method'], as_index=False).agg({
+grouped_df = df.groupby(['pkid', 'layers', 'method', 'backend', 'shots'], as_index=False).agg({
     'ARG': 'mean',
     'in_constraints_probs': 'mean',
     'best_solution_probs': 'mean',

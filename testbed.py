@@ -1,4 +1,4 @@
-should_print = True
+# should_print = True
 import random
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
@@ -9,7 +9,7 @@ from quBLP.analysis import generater
 random.seed(0x7f2f)
 optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
-    max_iter=1
+    max_iter=150
 )
 circuit_option = CircuitOption(
     num_layers=1,
@@ -50,5 +50,5 @@ prb = problems[0]
 prb.set_algorithm_optimization_method('commute', 400)
 # print(prb.optimize(optimizer_option, circuit_option))
 
-print(prb.dichotomy_optimize(optimizer_option, circuit_option))
+print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=3))
 # print(kpp_configs)
