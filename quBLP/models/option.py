@@ -1,6 +1,6 @@
 from typing import List, Callable, Tuple
 from dataclasses import dataclass, field
-
+from quBLP.solvers.cloud_execute.cloud_manager import CloudManager
 @dataclass
 class OptimizerOption:
     params_optimization_method: str = 'COBYLA'
@@ -25,7 +25,8 @@ class CircuitOption:
     feedback: List = field(default_factory=list)
     log_depth: bool = False
     shots: int = 1024
-    use_IBM_service: bool = False
+    use_IBM_service_mode: str = None
+    cloud_manager: CloudManager = None
     # 
     num_qubits: int = 0
     algorithm_optimization_method: str = 'commute'

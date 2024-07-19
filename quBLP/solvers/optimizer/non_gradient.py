@@ -16,10 +16,11 @@ def train_non_gradient(optimizer_option: OptimizerOption):
     def callback(params):
         nonlocal iteration_count
         iteration_count += 1
-        with open(filename, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            res = [iteration_count] + params.tolist()
-            writer.writerow(res) 
+        if optimizer_option.use_local_params:
+            with open(filename, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                res = [iteration_count] + params.tolist()
+                writer.writerow(res) 
         if iteration_count % 10 == 0:
             iprint(f"Iteration {iteration_count}, Result: {optimizer_option.circuit_cost_function(params)}")
 
@@ -28,15 +29,16 @@ def train_non_gradient(optimizer_option: OptimizerOption):
         result = minimize(cost_function, params, method='COBYLA', options={'maxiter': remaining_iter}, callback=callback)
         return result.x, iteration_count
 
-    if os.path.exists(filename):
+    if optimizer_option.use_local_params and os.path.exists(filename):
         lastrow = read_last_row(filename)
         iteration_count = int(lastrow[0])
         params = [float(x) for x in lastrow[1:]]
+            # with open(filename, mode='w', newline='') as file:
+            #     writer = csv.writer(file)
+            #     writer.writerow(['iteration_count'] + [f'param_{p}' for p in range(len(params))])
+    # 读空数据异常待修改
     else:
         iteration_count = 0 
         params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
-        with open(filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['iteration_count'] + [f'param_{p}' for p in range(len(params))])
     
     return train_with_scipy(params, optimizer_option.circuit_cost_function, optimizer_option.max_iter)

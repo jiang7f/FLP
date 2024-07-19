@@ -20,7 +20,7 @@ from time import perf_counter
 from itertools import combinations
 from ...analysis import Feature
 from ...utils import QuickFeedbackException
-from ..cloud_execute.could_service import get_IBM_service
+from ..cloud_execute.cloud_service import get_IBM_service
 
 
 def calculate_fidelity_by_counts(counts, target_counts) -> float:
@@ -43,7 +43,7 @@ class QiskitCircuit:
         self.num_layers = circuit_option.num_layers
         iprint(circuit_option.backend)
 
-        if circuit_option.use_IBM_service == True:
+        if circuit_option.use_IBM_service_mode:
             service = get_IBM_service()
             self.backend = service.backend(circuit_option.backend)
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
@@ -87,8 +87,13 @@ class QiskitCircuit:
                 job = backend.run(final_qc, shots=self.circuit_option.shots)
                 counts = job.result().get_counts(final_qc)
             else:
-                if self.circuit_option.use_IBM_service:
+                if self.circuit_option.use_IBM_service_mode == 'single':
                     sampler = Sampler(backend=self.backend)
+                elif self.circuit_option.use_IBM_service_mode == 'group':
+                    cloud_manager = self.circuit_option.cloud_manager
+                    backend_shots = (self.circuit_option.backend, self.circuit_option.shots)
+                    circuit_id = cloud_manager.append_circuit(backend_shots, final_qc)
+                    counts = cloud_manager.get_counts(backend_shots, circuit_id)
                 else:
                     sampler = Sampler(backend=self.backend, options=options)
                 job = sampler.run([final_qc], shots=self.circuit_option.shots)
