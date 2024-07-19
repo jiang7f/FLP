@@ -9,7 +9,8 @@ from quBLP.analysis import generater
 random.seed(0x7f2f)
 optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
-    max_iter=5
+    max_iter=100,
+    opt_id=None,
 )
 circuit_option = CircuitOption(
     num_layers=1,
@@ -17,11 +18,11 @@ circuit_option = CircuitOption(
     use_decompose=True,
     mcx_mode='constant',
     circuit_type='qiskit',
-    backend='ibm_osaka',  # 'FakeQuebec' # 'AerSimulator'
-    # backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
+    # backend='ibm_osaka',  # 'FakeQuebec' # 'AerSimulator'
+    backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
     # feedback=['depth', 'culled_depth', 'latency', 'width'],
     # feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
-    IBM=True,
+    # IBM=True,
 )
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 raw_depth = [[] for _ in range(len(methods))]

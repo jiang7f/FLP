@@ -43,7 +43,7 @@ class QiskitCircuit:
         self.num_layers = circuit_option.num_layers
         iprint(circuit_option.backend)
 
-        if circuit_option.IBM == True:
+        if circuit_option.use_IBM_service == True:
             service = get_IBM_service()
             self.backend = service.backend(circuit_option.backend)
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
@@ -87,15 +87,15 @@ class QiskitCircuit:
                 job = backend.run(final_qc, shots=self.circuit_option.shots)
                 counts = job.result().get_counts(final_qc)
             else:
-                if self.circuit_option.IBM:
+                if self.circuit_option.use_IBM_service:
                     sampler = Sampler(backend=self.backend)
                 else:
                     sampler = Sampler(backend=self.backend, options=options)
                 job = sampler.run([final_qc], shots=self.circuit_option.shots)
-                while not job.done():
-                    print(f'State: {job.status()}')
-                    import time
-                    time.sleep(5)
+                # while not job.done():
+                #     print(f'State: {job.status()}')
+                #     import time
+                #     time.sleep(5)
                 result = job.result()
                 # result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
                 pub_result = result[0]

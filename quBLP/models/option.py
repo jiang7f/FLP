@@ -8,7 +8,9 @@ class OptimizerOption:
     learning_rate: float = 0.1
     beta1: float = 0.9
     beta2: float = 0.999
-    # 
+    opt_id: any = None
+    use_local_params: bool = False
+    #
     circuit_cost_function: Callable = None
     num_params: int = None
 
@@ -23,7 +25,7 @@ class CircuitOption:
     feedback: List = field(default_factory=list)
     log_depth: bool = False
     shots: int = 1024
-    IBM: bool = False
+    use_IBM_service: bool = False
     # 
     num_qubits: int = 0
     algorithm_optimization_method: str = 'commute'

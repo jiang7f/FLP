@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import csv
 import psutil
 
 main_module = sys.modules['__main__']
@@ -20,3 +21,11 @@ def get_rss_usage():
 def set_print_form(suppress=True, precision=4, linewidth=300):
     # 不要截断 是否使用科学计数法 输出浮点数位数 宽度
     np.set_printoptions(threshold=np.inf, suppress=suppress, precision=precision,  linewidth=linewidth)
+
+def read_last_row(csv_file_path):
+    last_row = None
+    with open(csv_file_path, mode='r', encoding='utf-8') as file:
+        csv_reader = csv.reader(file)
+        for row in csv_reader:
+            last_row = row
+    return last_row
