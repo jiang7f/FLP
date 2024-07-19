@@ -25,10 +25,10 @@ class CloudManager:
 
     def run(self, backend_shots):
         num_circuit = len(self.job_dic[backend_shots])
+        print(f'{backend_shots} add one circuit, {num_circuit} / {self.one_job_lens}')
         # 如果不该run：
         if num_circuit < self.one_job_lens:
             # 还没出结果, 阻塞
-            print(f'{backend_shots} add one circuit, {num_circuit} / {self.one_job_lens}')
             while backend_shots not in self.result_dic.keys():
                 time.sleep(self.sleep_interval)
         else:
@@ -43,7 +43,7 @@ class CloudManager:
             job_id = job.job_id()
             self.job_id_dic[backend_shots] = job_id
             # 
-            while not job.done:
+            while not job.done():
                 print(f'{job_id} status: {job.status()}')
                 time.sleep(self.sleep_interval)
             self.result_dic[backend_shots] = job.result()
