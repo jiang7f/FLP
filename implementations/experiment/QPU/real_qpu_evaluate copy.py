@@ -14,29 +14,24 @@ random.seed(0x7ff)
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
 
-flp_problems_pkg, flp_configs_pkg = generater.generate_flp(2, [(1, 2)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(0, [(1, 1)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(2, 2, 1)], 1, 20)
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(3, [(1, 2)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(3, [(3, 1)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(3, [(4, 2, 3)], 1, 20)
 
 problems_pkg = flp_problems_pkg + gcp_problems_pkg + kpp_problems_pkg
 
 configs_pkg = flp_configs_pkg + gcp_configs_pkg + kpp_configs_pkg
-
 with open(f"{new_path}.config", "w") as file:
     for pkid, configs in enumerate(configs_pkg):
         for problem in configs:
             file.write(f'{pkid}: {problem}\n')
 
-
-methods = ['commute', 'penalty']
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
 # backends = ['ibm_fez', 'ibm_torino', 'ibm_kyiv', 'ibm_rensselaer']
-backends = ['ibm_osaka']
+backends = ['AerSimulator']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
-shotss = [5]
+shotss = [16, 32, 64,128, 256]
 headers = ["pkid", 'layers', 'method', 'backend', 'shots'] + evaluation_metrics
-
-num_problems = sum([len(problem) for problem in problems_pkg])
-num_methods = len(methods)
 
 def process_layer(prb, method, backend, shots, shared_cloud_manager):
     prb.set_algorithm_optimization_method(method, 400)
@@ -53,7 +48,7 @@ def process_layer(prb, method, backend, shots, shared_cloud_manager):
     )
     optimizer_option = OptimizerOption(
         params_optimization_method='COBYLA',
-        max_iter=1,
+        max_iter=70,
     )
     result = prb.optimize(optimizer_option, circuit_option)
     return result
@@ -71,17 +66,9 @@ if __name__ == '__main__':
 
         num_processes_cpu = os.cpu_count()
         with Manager() as manager:
+            shared_cloud_manager = CloudManager(4 * 3 * 3)
 
-            job_dic = manager.dict()
-            result_dic = manager.dict()
-            job_id_dic = manager.dict()
-            for backend in backends:
-                for shots in shotss:
-                    job_dic[(backend, shots)] = manager.list()
-                    result_dic[(backend, shots)] = manager.list()
-            # 创建共享的 CloudManager 实例
-            shared_cloud_manager = CloudManager(job_dic, result_dic, job_id_dic, num_problems * num_methods)
-            with ProcessPoolExecutor(max_workers=1) as executor:
+            with ProcessPoolExecutor(max_workers=(num_processes_cpu // 4)) as executor:
                 futures = []
                 for backend in backends:
                     for shots in shotss:

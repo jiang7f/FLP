@@ -1,5 +1,16 @@
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+import shutil
 import os
+
+class CustomInstallCommand(install):
+    def run(self):
+        install.run(self)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        key_file = os.path.join(current_dir, 'IBM.key')
+        target_dir = os.path.join(self.install_lib, 'qublp/solvers/cloud_execute')
+        if os.path.isfile(key_file):
+            shutil.copy(key_file, target_dir)
 
 def _process_requirements():
     packages = open('requirements.txt').read().strip().split('\n')
@@ -23,4 +34,7 @@ setup(
     #     'License :: OSI Approved :: MIT License',
     #     'Operating System :: OS Independent',
     # ],
+    package_data={
+        'quBLP.solvers.cloud_execute': ['IBM.key'],
+    },
 )

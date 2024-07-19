@@ -1,6 +1,7 @@
 from qiskit_ibm_runtime import QiskitRuntimeService
 import os
 current_dir = os.path.dirname(__file__)
+
 def get_IBM_service():
     with open(os.path.join(current_dir, 'IBM.key'), 'r') as file:
         lines = file.readlines()

@@ -87,24 +87,22 @@ class QiskitCircuit:
                 job = backend.run(final_qc, shots=self.circuit_option.shots)
                 counts = job.result().get_counts(final_qc)
             else:
-                if self.circuit_option.use_IBM_service_mode == 'single':
-                    sampler = Sampler(backend=self.backend)
-                elif self.circuit_option.use_IBM_service_mode == 'group':
+                if self.circuit_option.use_IBM_service_mode == 'group':
                     cloud_manager = self.circuit_option.cloud_manager
                     backend_shots = (self.circuit_option.backend, self.circuit_option.shots)
                     circuit_id = cloud_manager.append_circuit(backend_shots, final_qc)
                     counts = cloud_manager.get_counts(backend_shots, circuit_id)
                 else:
-                    sampler = Sampler(backend=self.backend, options=options)
-                job = sampler.run([final_qc], shots=self.circuit_option.shots)
-                # while not job.done():
-                #     print(f'State: {job.status()}')
-                #     import time
-                #     time.sleep(5)
-                result = job.result()
-                # result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
-                pub_result = result[0]
-                counts = pub_result.data.c.get_counts()
+                    if self.circuit_option.use_IBM_service_mode == 'single':
+                        sampler = Sampler(backend=self.backend)
+                    else:
+                        sampler = Sampler(backend=self.backend, options=options)
+                    print("ahahaha")
+                    exit()
+                    job = sampler.run([final_qc], shots=self.circuit_option.shots)
+                    result = job.result()
+                    pub_result = result[0]
+                    counts = pub_result.data.c.get_counts()
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:

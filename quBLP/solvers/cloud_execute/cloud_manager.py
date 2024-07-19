@@ -1,14 +1,14 @@
 from quBLP.solvers.cloud_execute import cloud_service
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 import time
+
 class CloudManager:
-    def __init__(self, one_job_lens, sleep_interval=5) -> None:
+    def __init__(self, job_dic, result_dic, job_id_dic, one_job_lens, sleep_interval=5) -> None:
         self.one_job_lens = one_job_lens
         self.sleep_interval = sleep_interval
-        self.service = cloud_service.get_IBM_service()
-        self.job_dic = {}
-        self.result_dic = {}
-        self.job_id_dic = {}
+        self.job_dic = job_dic
+        self.result_dic = result_dic
+        self.job_id_dic = job_id_dic
 
     # backend_shots 为 backend 和 shots 的元组
     def append_circuit(self, backend_shots, circuit):
@@ -33,8 +33,12 @@ class CloudManager:
                 time.sleep(self.sleep_interval)
         else:
             backend_name, shots = backend_shots
-            backend = self.service.backend(backend_name)
+            service = cloud_service.get_IBM_service()
+            backend = service.backend(backend_name)
             sampler = Sampler(backend=backend)
+            # while True:
+                # print("OuO!!!!!")
+                # time.sleep(1)
             job = sampler.run(self.job_dic[backend_shots], shots=shots)
             job_id = job.job_id()
             self.job_id_dic[backend_shots] = job_id
@@ -43,8 +47,3 @@ class CloudManager:
                 print(f'{job_id} status: {job.status()}')
                 time.sleep(self.sleep_interval)
             self.result_dic[backend_shots] = job.result()
-            
-        
-
-
-            # print(f'{backend_shots} status: {job.status()}')

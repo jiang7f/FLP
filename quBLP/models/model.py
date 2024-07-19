@@ -6,7 +6,7 @@ from typing import Iterable, List, Callable,  Union
 from ..utils.linear_system import find_basic_solution, to_row_echelon_form
 from ..utils.parse_expr import split_expr
 from ..utils import QuickFeedbackException
-from ..solvers import solve
+from ..solvers.solver import solve
 from dataclasses import dataclass, field
 from .option import OptimizerOption, CircuitOption
 import gurobipy as gp
