@@ -8,3 +8,4 @@ __pycache__/
 *.log
 3_QCOA
 gp/
+*.key

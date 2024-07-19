@@ -15,10 +15,12 @@ from .pennylane_decompose import driver_component as driver_component_pennylane
 from .qiskit_decompose import driver_component as driver_component_qiskit
 from ...models import CircuitOption
 from qiskit_ibm_runtime import SamplerV2 as Sampler
+from qiskit_ibm_runtime import QiskitRuntimeService
 from time import perf_counter
 from itertools import combinations
 from ...analysis import Feature
 from ...utils import QuickFeedbackException
+from ..cloud_execute.could_service import get_IBM_service
 
 
 def calculate_fidelity_by_counts(counts, target_counts) -> float:
@@ -39,12 +41,20 @@ class QiskitCircuit:
             self.others_qubit_set = set(range(circuit_option.num_qubits)) - self.cyclic_qubit_set
         self.num_qubits = circuit_option.num_qubits
         self.num_layers = circuit_option.num_layers
-
-        #+ will to delete
         iprint(circuit_option.backend)
-        
+
+        if circuit_option.IBM == True:
+            service = get_IBM_service()
+            if circuit_option.backend == 'Kyiv':
+                self.backend = service.backend("ibm_kyiv")
+            elif circuit_option.backend == 'Torino':
+                self.backend = service.backend("ibm_torino")
+            elif circuit_option.backend == 'Brisbane':
+                self.backend = service.backend("ibm_brisbane")
+            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
+
         if circuit_option.backend == 'FakeKyiv':
-            self.backend = FakeKyiv() # 新版 真机
+            self.backend = FakeKyiv()
             self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
         elif circuit_option.backend == 'FakeTorino':
             self.backend = FakeTorino() # 新版 真机
@@ -62,6 +72,9 @@ class QiskitCircuit:
             self.backend = AerSimulator()
             self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['measure', 'cx', 'id', 's', 'sdg', 'x', 'y', 'h', 'z', 'mcx', 'cz', 'sx', 'sy', 't', 'tdg', 'swap', 'rx', 'ry', 'rz'])
         # self.pass_manager = generate_preset_pass_manager(optimization_level=2, basis_gates=['ecr', 'id', 'rz', 'sx', 'x'])        
+        else:
+            print('error backend')
+            exit()
 
 
     def inference(self, params):
@@ -81,8 +94,11 @@ class QiskitCircuit:
             else:
                 sampler = Sampler(backend=self.backend, options=options)
                 result = sampler.run([final_qc], shots=self.circuit_option.shots).result()
-                pub_result = result[0]
-                counts = pub_result.data.c.get_counts()
+                if self.circuit_option.IBM == True:
+                    pass
+                else:  
+                    pub_result = result[0]
+                    counts = pub_result.data.c.get_counts()
             end = perf_counter()
             self.run_time = end - start
         if feedback is not None and len(feedback) > 0:

@@ -21,6 +21,7 @@ circuit_option = CircuitOption(
     # backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
     # feedback=['depth', 'culled_depth', 'latency', 'width'],
     # feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
+    IBM=True,
 )
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
 raw_depth = [[] for _ in range(len(methods))]

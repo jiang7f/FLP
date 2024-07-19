@@ -23,6 +23,7 @@ class CircuitOption:
     feedback: List = field(default_factory=list)
     log_depth: bool = False
     shots: int = 1024
+    IBM: bool = False
     # 
     num_qubits: int = 0
     algorithm_optimization_method: str = 'commute'

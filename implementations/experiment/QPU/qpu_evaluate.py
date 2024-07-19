@@ -48,7 +48,8 @@ def process_layer(prb, method, backend, shots):
         circuit_type='qiskit',
         mcx_mode='linear',
         backend=backend,
-        shots=shots
+        shots=shots,
+        feedback=['depth']
     )
     result = prb.optimize(optimizer_option, circuit_option)
     return result
