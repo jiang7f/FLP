@@ -12,8 +12,8 @@ class CloudManager:
 
     # backend_shots 为 backend 和 shots 的元组
     def append_circuit(self, backend_shots, circuit):
-        if backend_shots not in self.job_dic.keys():
-            self.job_dic[backend_shots] = []
+        # if backend_shots not in self.job_dic.keys():
+        #     self.job_dic[backend_shots] = []
         self.job_dic[backend_shots].append(circuit)
         circuit_id = len(self.job_dic[backend_shots])
         return circuit_id
@@ -25,25 +25,31 @@ class CloudManager:
 
     def run(self, backend_shots):
         num_circuit = len(self.job_dic[backend_shots])
-        print(f'{backend_shots} add one circuit, {num_circuit} / {self.one_job_lens}')
         # 如果不该run：
         if num_circuit < self.one_job_lens:
+            print(f'{backend_shots} add one circuit, {num_circuit} / {self.one_job_lens}')
             # 还没出结果, 阻塞
             while backend_shots not in self.result_dic.keys():
                 time.sleep(self.sleep_interval)
         else:
+            # 重新装满 job_dic 中的 circuit, 则清空上一次 result (已经被读取)
+            self.result_dic[backend_shots][:] = []
             backend_name, shots = backend_shots
             service = cloud_service.get_IBM_service()
             backend = service.backend(backend_name)
             sampler = Sampler(backend=backend)
             # while True:
-                # print("OuO!!!!!")
-                # time.sleep(1)
+            #     print("OuO!!!!!")
+            #     time.sleep(self.sleep_interval)
             job = sampler.run(self.job_dic[backend_shots], shots=shots)
             job_id = job.job_id()
             self.job_id_dic[backend_shots] = job_id
             # 
             while not job.done():
-                print(f'{job_id} status: {job.status()}')
+                if job.status() != 'QUEUED':
+                    print(f'{job_id} status: {job.status()}')
                 time.sleep(self.sleep_interval)
+            # 已得到结果, 清空电路
+            self.job_dic[backend_shots][:] = []
             self.result_dic[backend_shots] = job.result()
+
