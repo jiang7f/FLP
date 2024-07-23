@@ -99,7 +99,8 @@ class ConstrainedBinaryOptimization(Model):
     def find_state_probability(self, state):
         try:
             index = self.collapse_state.index(state)
-        except ValueError:
+        except ValueError as e:
+            print('find_state_probaility', e)
             return 0
         else:
             return self.probs[index]
@@ -380,8 +381,11 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f"mean_cost: {mean_cost}")
         in_constraints_probs = 0
         for cs, pr in zip(self.collapse_state, self.probs):
-            if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
-                in_constraints_probs += pr
+            try:
+                if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
+                    in_constraints_probs += pr
+            except:
+                print(self.linear_constraints, cs)
         in_constraints_probs *= 100
         iprint(f'in_constraint_probs: {in_constraints_probs}')
         ARG = abs((mean_cost - best_cost) / best_cost)

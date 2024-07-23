@@ -26,6 +26,8 @@ class CircuitOption:
     log_depth: bool = False
     shots: int = 1024
     use_IBM_service_mode: str = None
+    use_free_IBM_service: bool = True
+    use_fake_IBM_service: bool = False
     cloud_manager: CloudManager = None
     # 
     num_qubits: int = 0

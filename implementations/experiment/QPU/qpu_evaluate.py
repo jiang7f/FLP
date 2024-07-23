@@ -49,7 +49,7 @@ def process_layer(prb, method, backend, shots):
         mcx_mode='linear',
         backend=backend,
         shots=shots,
-        feedback=['depth']
+        feedback=['depth'],
     )
     result = prb.optimize(optimizer_option, circuit_option)
     return result

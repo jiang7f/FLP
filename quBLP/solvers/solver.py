@@ -22,15 +22,18 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     if circuit_option.need_draw:
         circuit.draw_circuit()
     # 测试一组预设参数的结果
-    collapse_state, probs = circuit.inference([0.5] * num_params)
-    test_maxprobidex = np.argmax(probs)
-    iprint(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
+    
+    # test_maxprobidex = np.argmax(probs)
+    # iprint(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
+    # print(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}')
+    # collapse_state, probs = circuit.inference([0.5] * num_params)
     # 进行参数优化
     if optimizer_option.params_optimization_method == 'Adam':
         best_params, iteration_count = train_gradient(optimizer_option)
     elif optimizer_option.params_optimization_method == 'COBYLA':
         best_params, iteration_count = train_non_gradient(optimizer_option)
     collapse_state, probs = circuit.inference(best_params)
+    circuit_option.cloud_manager.one_optimization_finished()
     iprint(f'iteration_count: {iteration_count}')
     iprint(f"best_params: {best_params}") #-
     return collapse_state, probs, iteration_count

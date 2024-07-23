@@ -21,8 +21,8 @@ from itertools import combinations
 from ...analysis import Feature
 from ...utils import QuickFeedbackException
 from ..cloud_execute.cloud_service import get_IBM_service
-
-
+import time
+import sys
 def calculate_fidelity_by_counts(counts, target_counts) -> float:
     """
     计算两个计数分布之间的相似度
@@ -44,9 +44,20 @@ class QiskitCircuit:
         iprint(circuit_option.backend)
 
         if circuit_option.use_IBM_service_mode:
-            service = get_IBM_service()
-            self.backend = service.backend(circuit_option.backend)
-            self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
+            try:
+                if self.circuit_option.use_fake_IBM_service:
+                    self.backend = FakeKyiv()
+                    self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
+                    print('Fake IBM service created for transpile')
+                    sys.stdout.flush()
+                else:
+                    service = get_IBM_service(circuit_option.use_free_IBM_service, "IBM service created for transpile")
+                    sys.stdout.flush()
+                    self.backend = service.backend(circuit_option.backend)
+                    self.pass_manager = generate_preset_pass_manager(backend=self.backend, optimization_level=2)
+            except:
+                print('IBM service created for transpile failure')
+                sys.stdout.flush()
 
         elif circuit_option.backend == 'FakeKyiv':
             self.backend = FakeKyiv()
@@ -90,15 +101,18 @@ class QiskitCircuit:
                 if self.circuit_option.use_IBM_service_mode == 'group':
                     cloud_manager = self.circuit_option.cloud_manager
                     backend_shots = (self.circuit_option.backend, self.circuit_option.shots)
-                    circuit_id = cloud_manager.append_circuit(backend_shots, final_qc)
-                    counts = cloud_manager.get_counts(backend_shots, circuit_id)
+                    # print(f'Worker {backend_shots} start submit')
+                    task_id = cloud_manager.submit_task(backend_shots,final_qc)
+                    counts = None
+                    while counts is None:
+                        time.sleep(3)
+                        # print(f"{self.circuit_option.algorithm_optimization_method} is waiting")
+                        counts = cloud_manager.get_counts(task_id)
+                    print(f'Worker {backend_shots} got result')
+                elif self.circuit_option.use_IBM_service_mode == 'single':
+                    sampler = Sampler(backend=self.backend)
                 else:
-                    if self.circuit_option.use_IBM_service_mode == 'single':
-                        sampler = Sampler(backend=self.backend)
-                    else:
-                        sampler = Sampler(backend=self.backend, options=options)
-                    print("ahahaha")
-                    exit()
+                    sampler = Sampler(backend=self.backend, options=options)
                     job = sampler.run([final_qc], shots=self.circuit_option.shots)
                     result = job.result()
                     pub_result = result[0]
@@ -382,6 +396,7 @@ class QiskitCircuit:
             #     transpiled_qc = qc.decompose(reps=3)
             # else:
             transpiled_qc = self.pass_manager.run(qc)
+            
             if 'transpile_time' in self.circuit_option.feedback:
                 end = perf_counter()   
                 self.transpile_time = (middle - start, end - middle)

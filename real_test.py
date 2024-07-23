@@ -2,9 +2,9 @@ from qiskit_ibm_runtime import QiskitRuntimeService, Sampler
 from qiskit_ibm_runtime.fake_provider import FakeProvider
 import time
 
-ibm_token = '123'
-ibm_cloud_api = '123'
-ibm_cloud_crn = '123'
+ibm_token = ''
+ibm_cloud_api = ''
+ibm_cloud_crn = ''
 
 # service = QiskitRuntimeService(channel='ibm_quantum', token=ibm_token)
 service = QiskitRuntimeService(channel='ibm_cloud', token=ibm_cloud_api, instance=ibm_cloud_crn)

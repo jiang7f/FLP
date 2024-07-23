@@ -1,55 +1,88 @@
 from quBLP.solvers.cloud_execute import cloud_service
 from qiskit_ibm_runtime import SamplerV2 as Sampler
+from qiskit_ibm_runtime.fake_provider import FakeKyiv, FakeTorino, FakeBrisbane
 import time
+import random
+from multiprocessing import Process, Queue, current_process, Manager
 
 class CloudManager:
-    def __init__(self, job_dic, result_dic, job_id_dic, one_job_lens, sleep_interval=5) -> None:
-        self.one_job_lens = one_job_lens
-        self.sleep_interval = sleep_interval
+    def __init__(self, job_dic, results, one_job_lens, sleep_interval=5, use_free=True) -> None:
         self.job_dic = job_dic
-        self.result_dic = result_dic
-        self.job_id_dic = job_id_dic
+        self.results = results
+        self.one_job_lens = one_job_lens
+        self.use_free = use_free
+        self.sleep_interval = sleep_interval
+        self.lock_result = Manager().Lock()
+        self.lock_IBM_run = Manager().Lock()
+        self.lock_job_lens = Manager().Lock()
+        self.lock_job_dic = Manager().Lock()
 
-    # backend_shots 为 backend 和 shots 的元组
-    def append_circuit(self, backend_shots, circuit):
-        # if backend_shots not in self.job_dic.keys():
-        #     self.job_dic[backend_shots] = []
-        self.job_dic[backend_shots].append(circuit)
-        circuit_id = len(self.job_dic[backend_shots])
-        return circuit_id
-
-    def get_counts(self, backend_shots, circuit_id):
-        self.run(backend_shots)
-        return self.result_dic[backend_shots][circuit_id].data.c.get_counts()
-        
-
-    def run(self, backend_shots):
-        num_circuit = len(self.job_dic[backend_shots])
-        # 如果不该run：
-        if num_circuit < self.one_job_lens:
-            print(f'{backend_shots} add one circuit, {num_circuit} / {self.one_job_lens}')
-            # 还没出结果, 阻塞
-            while backend_shots not in self.result_dic.keys():
-                time.sleep(self.sleep_interval)
+    def submit_task(self, backend_shots, circuit):
+        task_id = id((backend_shots, circuit))
+        # 会有相同参数的电路应该直接返回，只有无记录(return None)的电路才算
+        if self.get_counts(task_id) is None:
+            print(f"{backend_shots} submitted")
+            self.job_dic[backend_shots].put((task_id,circuit))
         else:
-            # 重新装满 job_dic 中的 circuit, 则清空上一次 result (已经被读取)
-            self.result_dic[backend_shots][:] = []
-            backend_name, shots = backend_shots
-            service = cloud_service.get_IBM_service()
-            backend = service.backend(backend_name)
-            sampler = Sampler(backend=backend)
-            # while True:
-            #     print("OuO!!!!!")
-            #     time.sleep(self.sleep_interval)
-            job = sampler.run(self.job_dic[backend_shots], shots=shots)
-            job_id = job.job_id()
-            self.job_id_dic[backend_shots] = job_id
-            # 
-            while not job.done():
-                if job.status() != 'QUEUED':
-                    print(f'{job_id} status: {job.status()}')
-                time.sleep(self.sleep_interval)
-            # 已得到结果, 清空电路
-            self.job_dic[backend_shots][:] = []
-            self.result_dic[backend_shots] = job.result()
+            print(f"{task_id} circuit has runed")
+        return task_id
 
+    def one_optimization_finished(self):
+        with self.lock_job_lens:
+            self.one_job_lens.value -= 1
+
+
+
+    def process_task(self, key):
+        time.sleep(self.sleep_interval)  # 等待电路线程创建
+        while True:
+            with self.lock_job_lens:
+                one_job_lens = self.one_job_lens.value
+            # all optimization finished to break
+            if one_job_lens == 0:
+                break
+            tasks = self.job_dic[key]
+            print(f'{key} manager task size: {tasks.qsize()} / {one_job_lens}')
+            if tasks.qsize() >= one_job_lens:
+                try:
+                    print(f"{key}, start to submit to IBM")
+                    backend_name, shots= key
+                    tasks_to_process = []
+                    for _ in range(one_job_lens):
+                        tasks_to_process.append(tasks.get())
+                    # 同时提交似乎有问题
+                    with self.lock_IBM_run:
+                        if self.use_free is not None:
+                            service = cloud_service.get_IBM_service(use_free=self.use_free, message = f"{key} manager IBM service created successful")
+                            backend = service.backend(backend_name)
+                        else:
+                            backend = FakeKyiv()
+                        sampler = Sampler(backend=backend)
+                        task_ids = [task_id for task_id, _ in tasks_to_process]
+                        circuits = [circuit for _, circuit in tasks_to_process]
+                        job = sampler.run(circuits, shots=shots)
+                    # while True:
+                    #     print(self.circuit_id)
+                    #     time.sleep(self.sleep_interval)
+                    job_id = job.job_id()
+                    while not job.done():
+                        print(f'{job_id} status: {job.status()}')
+                        time.sleep(self.sleep_interval)
+                    # 已得到结果, 清空电路
+                    print(f'{key, job_id} status: {job.status()}')
+                    counts = [job.result()[i].data.c.get_counts() for i in range(one_job_lens)]
+                    # print(counts)
+                    # counts = [{'100011': 2} for _ in range(one_job_lens)]
+                    with self.lock_result:
+                        for i, task_id in enumerate(task_ids):
+                            self.results[task_id] = counts[i]
+                except Exception as e:
+                    print('IBM submit error', e)
+            time.sleep(self.sleep_interval)  # 避免忙碌等待
+            
+            
+    def get_counts(self, task_id):
+        # return {'101000': 92}
+        with self.lock_result:
+            counts = self.results.get(task_id, None)
+        return counts
