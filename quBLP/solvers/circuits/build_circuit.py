@@ -447,6 +447,17 @@ class QiskitCircuit:
     def get_circuit_cost_function(self):
         def circuit_cost_function(params):
             collapse_state, probs = self.inference(params)
+        #     sort_zip = sorted(zip(probs, collapse_state), reverse=True)
+        #     cost = 0
+        #     prob = 0
+        #     for p, c in sort_zip:
+        #         if prob >= 0.9:
+        #             break
+        #         cost += self.circuit_option.objective_func(c) * p
+        #         prob += p
+        #     return cost
+        # return circuit_cost_function
+            # exit()
             costs = 0
             for value, prob in zip(collapse_state, probs):
                 costs += self.circuit_option.objective_func(value) * prob

@@ -33,7 +33,8 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
     elif optimizer_option.params_optimization_method == 'COBYLA':
         best_params, iteration_count = train_non_gradient(optimizer_option)
     collapse_state, probs = circuit.inference(best_params)
-    circuit_option.cloud_manager.one_optimization_finished()
+    if circuit_option.use_IBM_service_mode:
+        circuit_option.cloud_manager.one_optimization_finished()
     iprint(f'iteration_count: {iteration_count}')
     iprint(f"best_params: {best_params}") #-
     return collapse_state, probs, iteration_count

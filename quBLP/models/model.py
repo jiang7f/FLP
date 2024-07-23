@@ -486,8 +486,8 @@ class ConstrainedBinaryOptimization(Model):
             circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
             circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
             circuit_option.Hd_bits_list = to_row_echelon_form(self.dctm_driver_bitstr)
-            iprint(f'Hd_bits_list:\n {circuit_option.Hd_bits_list}') #-
-            iprint(self.dctm_driver_bitstr)
+            iprint(f'dctm_driver_bitstr:\n{self.dctm_driver_bitstr}') #-
+            iprint(f'Hd_bits_list:\n{circuit_option.Hd_bits_list}') #-
             ###################################
             objective_func_map = {
                 'penalty': self.objective_penalty,
@@ -495,12 +495,7 @@ class ConstrainedBinaryOptimization(Model):
                 'commute': self.objective_commute,
                 'HEA': self.objective_penalty
             }
-            dctm_objective_func_map = {
-                'penalty': self.objective_penalty,
-                'cyclic': self.objective_cyclic,
-                'commute': self.objective_commute,
-                'HEA': self.objective_penalty
-            }
+
             # if self.algorithm_optimization_method in objective_func_map:
             def dctm_objective_func_map(method: str):
                 def dctm_objective_func(variables: Iterable):

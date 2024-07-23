@@ -60,7 +60,7 @@ def process_layer( pkid, pbid, prb, method, backend, shots, shared_cloud_manager
             params_optimization_method='COBYLA',
             max_iter=50,
             use_local_params = True,
-            opt_id= '_'.join([str(x) for x in [file_name,pkid, pbid,method, backend, shots]]),
+            opt_id= '_'.join([str(x) for x in [file_name, pkid, pbid, method, backend, shots]]),
         )
         result = prb.optimize(optimizer_option, circuit_option)
         return result

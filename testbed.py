@@ -1,25 +1,26 @@
-# should_print = True
+should_print = True
 import random
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.models import CircuitOption, OptimizerOption
+from quBLP.models import ConstrainedBinaryOptimization
 from quBLP.analysis import generater
 
 random.seed(0x7f2f)
 optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
-    max_iter=100,
+    max_iter=150,
     opt_id=None,
 )
 circuit_option = CircuitOption(
-    num_layers=1,
+    num_layers=5,
     need_draw=False,
     use_decompose=True,
     mcx_mode='constant',
     circuit_type='qiskit',
     # backend='ibm_osaka',  # 'FakeQuebec' # 'AerSimulator'
-    backend='AerSimulator',  # 'FakeQuebec' # 'AerSimulator'
+    backend='AerSimulator',  # FakeKyiv, FakeTorino, FakeBrisbane
     # feedback=['depth', 'culled_depth', 'latency', 'width'],
     # feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
     # IBM=True,
@@ -45,12 +46,12 @@ problems = [prb for problems in problems_pkg for prb in problems]
 #     for config in configs:
 #         print(*config)
 #     print()
-prb = problems[0]
+prb : ConstrainedBinaryOptimization = problems[0]
+prb.set_algorithm_optimization_method('commute', 400)
 # print(prb.get_best_cost())
 # print(flp.get_solution_bitstr())
 # exit()
-prb.set_algorithm_optimization_method('commute', 400)
 print(prb.optimize(optimizer_option, circuit_option))
+# print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=2))
 
-# print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=3))
 # print(kpp_configs)

@@ -25,6 +25,8 @@ def get_circ_unitary(quantum_circuit):
 def to_row_echelon_form(orimatrix: np.array):
     """Convert a matrix to row echelon form."""
     matrix = orimatrix.copy()
+    if len(matrix) == 0:
+        return matrix
     num_rows, num_cols = matrix.shape
     lead = 0
     for r in range(num_rows):
