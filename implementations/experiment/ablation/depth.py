@@ -44,7 +44,7 @@ def process_layer(prb : ConstrainedBinaryOptimization, backend, strategy):
         need_draw=False,
         use_decompose=False,
         circuit_type='qiskit',
-        mcx_mode='constant',
+        mcx_mode='linear',
         backend=backend,
         feedback=feedback,
     )

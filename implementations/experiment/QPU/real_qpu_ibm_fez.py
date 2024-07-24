@@ -41,7 +41,7 @@ use_free = False
 num_problems = sum([len(problem) for problem in problems_pkg])
 num_methods = len(methods)
 
-file_name = __file__.split("\\")[-1].split(".")[0]
+file_name = os.path.splitext(os.path.basename(__file__))[0]
 # exit()
 def process_layer( pkid, pbid, prb, method, backend, shots, shared_cloud_manager):
     try:
