@@ -14,14 +14,14 @@ optimizer_option = OptimizerOption(
     opt_id=None,
 )
 circuit_option = CircuitOption(
-    num_layers=5,
+    num_layers=1,
     need_draw=False,
     use_decompose=True,
     mcx_mode='constant',
     circuit_type='qiskit',
     # backend='ibm_osaka',  # 'FakeQuebec' # 'AerSimulator'
     backend='AerSimulator',  # FakeKyiv, FakeTorino, FakeBrisbane
-    # feedback=['depth', 'culled_depth', 'latency', 'width'],
+    feedback=['depth', 'culled_depth', 'latency', 'width'],
     # feedback=['depth', 'culled_depth', 'transpile_time', 'rss_usage'],
     # IBM=True,
 )
@@ -52,6 +52,6 @@ prb.set_algorithm_optimization_method('commute', 400)
 # print(flp.get_solution_bitstr())
 # exit()
 print(prb.optimize(optimizer_option, circuit_option))
-# print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=2))
+# print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=1))
 
 # print(kpp_configs)

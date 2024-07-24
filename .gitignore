@@ -10,3 +10,4 @@ __pycache__/
 gp/
 *.key
 *_tool
+*_params_storage

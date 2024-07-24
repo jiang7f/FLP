@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import csv
 import psutil
+import os
 
 main_module = sys.modules['__main__']
 should_print = getattr(main_module, 'should_print', False)
@@ -29,3 +30,13 @@ def read_last_row(csv_file_path):
         for row in csv_reader:
             last_row = row
     return last_row
+
+def get_main_file_info():
+    main_module = sys.modules['__main__']
+    main_file = main_module.__file__
+    main_dir = os.path.dirname(main_file)
+    return main_dir, os.path.basename(main_file)
+
+def create_directory_if_not_exists(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)

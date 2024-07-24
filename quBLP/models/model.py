@@ -438,6 +438,14 @@ class ConstrainedBinaryOptimization(Model):
         in_constraints_probs_list = []
         best_solution_probs_list = []
         iteration_count_list = []
+        objective_func_map = {
+            'penalty': self.objective_penalty,
+            'cyclic': self.objective_cyclic,
+            'commute': self.objective_commute,
+            'HEA': self.objective_penalty
+        }
+        # 找到最优解的cost / by groubi
+        best_cost = self.get_best_cost()
         for i in range(2**num_frozen_qubit):
             self.frozen_state_list = [int(j) for j in list(bin(i)[2:].zfill(num_frozen_qubit))]
             # 调整约束矩阵 1 修改常数列(c - frozen_state * frozen_idx), 2 剔除 frozen 列
@@ -488,15 +496,7 @@ class ConstrainedBinaryOptimization(Model):
             circuit_option.Hd_bits_list = to_row_echelon_form(self.dctm_driver_bitstr)
             iprint(f'dctm_driver_bitstr:\n{self.dctm_driver_bitstr}') #-
             iprint(f'Hd_bits_list:\n{circuit_option.Hd_bits_list}') #-
-            ###################################
-            objective_func_map = {
-                'penalty': self.objective_penalty,
-                'cyclic': self.objective_cyclic,
-                'commute': self.objective_commute,
-                'HEA': self.objective_penalty
-            }
 
-            # if self.algorithm_optimization_method in objective_func_map:
             def dctm_objective_func_map(method: str):
                 def dctm_objective_func(variables: Iterable):
                     def insert_states(filtered_list, idx_list, state_list):
@@ -514,17 +514,28 @@ class ConstrainedBinaryOptimization(Model):
                         return result
                     return objective_func_map.get(method)(insert_states(variables, self.frozen_idx_list, self.frozen_state_list))
                 return dctm_objective_func
-                    
-                # 待优化写法
             circuit_option.objective_func = dctm_objective_func_map(self.algorithm_optimization_method)
+            
+            if len(circuit_option.Hd_bits_list) == 0:
+                cost = self.cost_dir * circuit_option.objective_func(circuit_option.feasiable_state)
+                ARG = abs((cost - best_cost) / best_cost)
+                best_solution_probs = 100 if cost == best_cost else 0
+                in_constraints_probs = 100 if all([np.dot(circuit_option.feasiable_state, constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]) else 0
+                ARG_list.append(ARG)
+                best_solution_probs_list.append(best_solution_probs)
+                in_constraints_probs_list.append(100)
+                iteration_count_list.append(0)
+                continue
+            ###################################
+
+                    
             try:
                 collapse_state, probs, iteration_count = solve(optimizer_option, circuit_option)
             except QuickFeedbackException as qfe:
                 return qfe.data
             self.collapse_state=collapse_state
             self.probs=probs
-            # 找到最优解和最优解的cost / by groubi
-            best_cost = self.get_best_cost()
+            # 最优解的cost / by groubi
             iprint(f'best_cost: {best_cost}')
             mean_cost = 0
             best_solution_probs = 0
@@ -546,7 +557,7 @@ class ConstrainedBinaryOptimization(Model):
             iprint(f"mean_cost: {mean_cost}")
             in_constraints_probs = 0
             for cs, pr in zip(self.collapse_state, self.probs):
-                if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]):
+                if all([np.dot(cs, constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]):
                     in_constraints_probs += pr
             in_constraints_probs *= 100
             iprint(f'in_constraint_probs: {in_constraints_probs}')

@@ -1,22 +1,22 @@
-from quBLP.utils.gadget import iprint, read_last_row
+from quBLP.utils.gadget import iprint, read_last_row, get_main_file_info, create_directory_if_not_exists
 from scipy.optimize import minimize
 import numpy as np
 from ...models import OptimizerOption
 import csv
 import os
 
-current_dir = os.path.dirname(__file__)
-
 def train_non_gradient(optimizer_option: OptimizerOption):
-    opt_id = optimizer_option.opt_id
-    filename = os.path.join(current_dir, f'params_storage/{opt_id}.csv')
-    
-    iteration_count = 0
-    
-   # 清空文件
-    with open(filename, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['iteration_count'] + [f'param_{i}' for i in range(optimizer_option.num_params)])
+    if optimizer_option.use_local_params:
+        dir, file = get_main_file_info()
+        new_dir = dir + f'/{file[:-3]}_params_storage'
+        opt_id = optimizer_option.opt_id
+        filename = os.path.join(new_dir, f'{opt_id}.csv')
+        create_directory_if_not_exists(new_dir)
+        
+    # 清空文件
+        with open(filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['iteration_count'] + [f'param_{i}' for i in range(optimizer_option.num_params)])
 
     def callback(params):
         nonlocal iteration_count
@@ -26,6 +26,7 @@ def train_non_gradient(optimizer_option: OptimizerOption):
                 writer = csv.writer(file)
                 res = [iteration_count] + params.tolist()
                 writer.writerow(res) 
+
         if iteration_count % 10 == 0:
             iprint(f"Iteration {iteration_count}, Result: {optimizer_option.circuit_cost_function(params)}")
 
@@ -44,6 +45,6 @@ def train_non_gradient(optimizer_option: OptimizerOption):
     #         #     writer.writerow(['iteration_count'] + [f'param_{p}' for p in range(len(params))])
     # # 读空数据异常待修改
     # else:
-    #     iteration_count = 0 
+    iteration_count = 0
     params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
     return train_with_scipy(params, optimizer_option.circuit_cost_function, optimizer_option.max_iter)

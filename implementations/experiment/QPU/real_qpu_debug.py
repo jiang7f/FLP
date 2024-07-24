@@ -1,9 +1,8 @@
-should_print = True
 import os
 import time
 import csv
-import signal
 import random
+import numpy as np
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
@@ -13,6 +12,7 @@ from quBLP.solvers.cloud_execute import get_IBM_service
 import traceback
 
 random.seed(0x7ff)
+np.random.seed(0xdb)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -20,6 +20,7 @@ new_path = script_path.replace('experiment', 'data')[:-3]
 flp_problems_pkg, flp_configs_pkg = generater.generate_flp(3, [(1, 2)], 1, 20)
 gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(3, [(3, 1)])
 kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(3, [(4, 2, 3)], 1, 20)
+
 problems_pkg = [[flp_problems_pkg[0][1]], [gcp_problems_pkg[0][1]], [kpp_problems_pkg[0][1]]]
 configs_pkg = [[flp_configs_pkg[0][1]], [gcp_configs_pkg[0][1]], [kpp_configs_pkg[0][1]]]
 
@@ -27,14 +28,15 @@ with open(f"{new_path}.config", "w") as file:
     for pkid, configs in enumerate(configs_pkg):
         for problem in configs:
             file.write(f'{pkid}: {problem}\n')
+# exit()
 
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
-backends = ['ibm_osaka']
+backends = ['FakeKyiv']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
 shotss = [1024]
 headers = ["pkid", 'pbid', 'layers', 'method', 'backend', 'shots'] + evaluation_metrics
 
-use_free = True
+use_free = None
 
 num_problems = sum([len(problem) for problem in problems_pkg])
 num_methods = len(methods)
@@ -54,13 +56,14 @@ def process_layer( pkid, pbid, prb, method, backend, shots, shared_cloud_manager
             shots=shots,
             use_IBM_service_mode='group',
             use_free_IBM_service=use_free,
+            use_fake_IBM_service=True,
             cloud_manager=shared_cloud_manager,
         )
         optimizer_option = OptimizerOption(
             params_optimization_method='COBYLA',
             max_iter=50,
             use_local_params = True,
-            opt_id= '_'.join([str(x) for x in [file_name, pkid, pbid, method, backend, shots]]),
+            opt_id= '_'.join([str(x) for x in [file_name, pkid, pbid,method, backend, shots]]),
         )
         result = prb.optimize(optimizer_option, circuit_option)
         return result
@@ -88,16 +91,12 @@ if __name__ == '__main__':
                 job_dic[key] = manager.Queue()
             results = manager.dict()
             one_job_lens=manager.Value('i', num_problems * num_methods)
-            len_ibm_token = 5
-            current_token_index = manager.Value('i', 0)
             shared_cloud_manager = CloudManager(
                 job_dic,
                 results,
                 one_job_lens=one_job_lens,
                 sleep_interval=10,
                 use_free=use_free,
-                len_ibm_token=len_ibm_token,
-                current_token_index=current_token_index
             )
 
             with ProcessPoolExecutor(max_workers=num_cpu - 2) as executor:

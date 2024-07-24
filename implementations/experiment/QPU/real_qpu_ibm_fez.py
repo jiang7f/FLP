@@ -1,8 +1,8 @@
 import os
 import time
 import csv
-import signal
 import random
+import numpy as np
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
@@ -12,6 +12,7 @@ from quBLP.solvers.cloud_execute import get_IBM_service
 import traceback
 
 random.seed(0x7ff)
+np.random.seed(0xdb)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
@@ -30,12 +31,12 @@ with open(f"{new_path}.config", "w") as file:
 # exit()
 
 methods = ['penalty', 'cyclic', 'commute', 'HEA']
-backends = ['FakeKyiv']
+backends = ['ibm_fez']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
 shotss = [1024]
 headers = ["pkid", 'pbid', 'layers', 'method', 'backend', 'shots'] + evaluation_metrics
 
-use_free = None
+use_free = False
 
 num_problems = sum([len(problem) for problem in problems_pkg])
 num_methods = len(methods)
@@ -55,14 +56,14 @@ def process_layer( pkid, pbid, prb, method, backend, shots, shared_cloud_manager
             shots=shots,
             use_IBM_service_mode='group',
             use_free_IBM_service=use_free,
-            use_fake_IBM_service=True,
             cloud_manager=shared_cloud_manager,
+            # use_fake_IBM_service=True
         )
         optimizer_option = OptimizerOption(
             params_optimization_method='COBYLA',
             max_iter=50,
             use_local_params = True,
-            opt_id= '_'.join([str(x) for x in [file_name, pkid, pbid,method, backend, shots]]),
+            opt_id= '_'.join([str(x) for x in [file_name, pkid, pbid, method, backend, shots]]),
         )
         result = prb.optimize(optimizer_option, circuit_option)
         return result
