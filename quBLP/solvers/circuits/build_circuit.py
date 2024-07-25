@@ -145,6 +145,7 @@ class QiskitCircuit:
     
     def create_circuit(self) -> None:
         use_decompose = self.circuit_option.use_decompose
+        use_serialization = self.circuit_option.use_serialization
         objective_func_term_list = self.circuit_option.objective_func_term_list
         self.inference_circuit = None
         num_qubits = self.num_qubits
@@ -385,7 +386,8 @@ class QiskitCircuit:
                     if use_decompose:
                         driver_component_qiskit(qc, nonzero_indices, ancilla, hdi_string, Hd_params[layer], mcx_mode)
                     else:
-                        if (self.circuit_option.feedback is None  or not self.circuit_option.feedback):
+                        if use_serialization:
+                        # if (self.circuit_option.feedback is None  or not self.circuit_option.feedback):
                             qc.unitary(expm(-1j * Hd_params[layer] * plus_minus_gate_sequence_to_unitary(nonzerobits)), nonzero_indices[::-1])
                         else:
                             # 比较分解效果时，不优化

@@ -18,12 +18,9 @@ np.random.seed(0xdb)
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
 
-flp_problems_pkg, flp_configs_pkg = generater.generate_flp(1, [(1, 2)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(1, [(3, 1)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(4, 2, 3)], 1, 20)
-# flp_problems_pkg, flp_configs_pkg = generater.generate_flp(1, [(2, 3)], 1, 20)
-# gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(1, [(3, 2)])
-# kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(6, 3, 5)], 1, 20)
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(1, [(2, 3)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(1, [(3, 2)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(6, 3, 5)], 1, 20)
 
 problems_pkg = flp_problems_pkg + gcp_problems_pkg + kpp_problems_pkg
 
@@ -35,7 +32,7 @@ with open(f"{new_path}.config", "w") as file:
 
 backends = ['FakeKyiv', 'FakeTorino', 'FakeBrisbane']
 feedback = ['depth', 'culled_depth', 'transpile_time']
-strategys = [[1, 2], [1, 1], [1, 0], [0, 2], [0, 1], [0, 0]]
+strategys = [2, 1, 0]
 # strategys = [[1, 2], [1, 1], [1, 0]]
 headers = ['pkid', 'backend', 'strategy'] + feedback
 file_name = __file__.split("/")[-1].split(".")[0]
@@ -45,7 +42,7 @@ def process_layer(prb : ConstrainedBinaryOptimization, backend, strategy):
     circuit_option = CircuitOption(
         num_layers=1,
         need_draw=False,
-        use_decompose=False,
+        use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='linear',
         backend=backend,
@@ -57,10 +54,8 @@ def process_layer(prb : ConstrainedBinaryOptimization, backend, strategy):
         # use_local_params=True,
         # opt_id= '_'.join([str(x) for x in [file_name, pkid]]),
     )
-    if strategy[0]:
-        circuit_option.use_decompose = True
-    if strategy[1]:
-        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy[1])
+    if strategy:
+        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy)
     else:
         result = prb.optimize(optimizer_option, circuit_option)
     return result

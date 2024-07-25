@@ -19,6 +19,7 @@ class CircuitOption:
     num_layers: int = 2
     need_draw: bool = False
     use_decompose: bool = False
+    use_serialization : bool = False # 不分解情况的可选项
     circuit_type: str = 'qiskit'
     mcx_mode: str = 'constant'  # 'constant' for 2 additional ancillas with linear depth, 'linear' for n-1 additional ancillas with logarithmic depth
     backend: str = 'FakeAlmadenV2' #'FakeQuebec' # 'AerSimulator'\

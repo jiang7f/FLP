@@ -35,7 +35,7 @@ evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'ite
 
 # feedback = ['depth', 'culled_depth', 'transpile_time']
 # strategys = [[1, 2], [1, 1], [1, 0], [0, 2], [0, 1], [0, 0]]
-strategys = [[1, 2], [1, 1], [1, 0]]
+strategys = [[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]]
 headers = ['pkid', 'backend', 'strategy'] + evaluation_metrics
 file_name = __file__.split("/")[-1].split(".")[0]
 
@@ -44,7 +44,7 @@ def process_layer(pkid, prb : ConstrainedBinaryOptimization, backend, strategy):
     circuit_option = CircuitOption(
         num_layers=1,
         need_draw=False,
-        use_decompose=False,
+        use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='linear',
         backend=backend,
@@ -56,9 +56,11 @@ def process_layer(pkid, prb : ConstrainedBinaryOptimization, backend, strategy):
         opt_id= '_'.join([str(x) for x in [file_name, pkid, backend, strategy]]),
     )
     if strategy[0]:
-        circuit_option.use_decompose = True
+        circuit_option.use_serialization = True
     if strategy[1]:
-        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy[1])
+        circuit_option.use_decompose = True
+    if strategy[2]:
+        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy[2])
     else:
         result = prb.optimize(optimizer_option, circuit_option)
     return result
