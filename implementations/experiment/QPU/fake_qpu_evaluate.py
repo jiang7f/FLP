@@ -49,7 +49,6 @@ def process_layer(prb, method, backend, shots):
         mcx_mode='linear',
         backend=backend,
         shots=shots,
-        feedback=['depth'],
     )
     result = prb.optimize(optimizer_option, circuit_option)
     return result
@@ -79,7 +78,7 @@ if __name__ == '__main__':
 
             start_time = time.perf_counter()
             for future, pkid, method, backend, shots in futures:
-                num_layers = 1 if method == 'commute' else 10
+                num_layers = 1 if method == 'commute' else 7
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []

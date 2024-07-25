@@ -23,10 +23,10 @@ def solve(optimizer_option: OptimizerOption, circuit_option: CircuitOption):
         circuit.draw_circuit()
     # 测试一组预设参数的结果
     
-    # test_maxprobidex = np.argmax(probs)
-    # iprint(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
-    # print(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}')
-    # collapse_state, probs = circuit.inference([0.5] * num_params)
+    collapse_state, probs = circuit.inference([0.5] * num_params)
+    test_maxprobidex = np.argmax(probs)
+    iprint(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}') #-
+    print(f'test_max_prob: {probs[test_maxprobidex]:.2%}, test_max_prob_state: {collapse_state[test_maxprobidex]}')
     # 进行参数优化
     if optimizer_option.params_optimization_method == 'Adam':
         best_params, iteration_count = train_gradient(optimizer_option)

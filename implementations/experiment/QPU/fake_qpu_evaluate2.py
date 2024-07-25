@@ -3,24 +3,27 @@ import time
 import csv
 import signal
 import random
-import numpy as np
 import itertools
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from quBLP.problemtemplate import FacilityLocationProblem as FLP
 from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.problemtemplate import KPartitionProblem as KPP
-from quBLP.models import CircuitOption, OptimizerOption, ConstrainedBinaryOptimization
+from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 
 random.seed(0x7ff)
-np.random.seed(0xdb)
 
 script_path = os.path.abspath(__file__)
 new_path = script_path.replace('experiment', 'data')[:-3]
 
-flp_problems_pkg, flp_configs_pkg = generater.generate_flp(1, [(2, 3)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(1, [(3, 2)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(1, [(6, 3, 5)], 1, 20)
+optimizer_option = OptimizerOption(
+    params_optimization_method='COBYLA',
+    max_iter=150
+)
+
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(3, [(1, 2)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(3, [(3, 1)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(3, [(4, 2, 3)], 1, 20)
 
 problems_pkg = flp_problems_pkg + gcp_problems_pkg + kpp_problems_pkg
 
@@ -30,41 +33,28 @@ with open(f"{new_path}.config", "w") as file:
         for problem in configs:
             file.write(f'{pkid}: {problem}\n')
 
+methods = ['penalty', 'cyclic', 'commute', 'HEA']
 backends = ['FakeKyiv', 'FakeTorino', 'FakeBrisbane']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
+shotss = [1024]
+headers = ["pkid", 'layers', 'method', 'backend', 'shots'] + evaluation_metrics
 
-# feedback = ['depth', 'culled_depth', 'transpile_time']
-# strategys = [[1, 2], [1, 1], [1, 0], [0, 2], [0, 1], [0, 0]]
-strategys = [[1, 2], [1, 1], [1, 0]]
-headers = ['pkid', 'backend', 'strategy'] + evaluation_metrics
-file_name = __file__.split("/")[-1].split(".")[0]
-
-def process_layer(pkid, prb : ConstrainedBinaryOptimization, backend, strategy):
-    prb.set_algorithm_optimization_method('commute', 400)
+def process_layer(prb, method, backend, shots):
+    prb.set_algorithm_optimization_method(method, 400)
     circuit_option = CircuitOption(
-        num_layers=1,
+        num_layers=1 if method == 'commute' else 7,
         need_draw=False,
-        use_decompose=False,
+        use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='linear',
         backend=backend,
+        shots=shots,
     )
-    optimizer_option = OptimizerOption(
-        params_optimization_method='COBYLA',
-        max_iter=150,
-        use_local_params=True,
-        opt_id= '_'.join([str(x) for x in [file_name, pkid, backend, strategy]]),
-    )
-    if strategy[0]:
-        circuit_option.use_decompose = True
-    if strategy[1]:
-        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy[1])
-    else:
-        result = prb.optimize(optimizer_option, circuit_option)
+    result = prb.optimize(optimizer_option, circuit_option)
     return result
 
 if __name__ == '__main__':
-    set_timeout = 60 * 60 * 24 * 1.5 # Set timeout duration
+    set_timeout = 60 * 10 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('experiment', 'data')[:-3]
@@ -75,35 +65,37 @@ if __name__ == '__main__':
         writer.writerow(headers)  # Write headers once
 
         num_processes_cpu = os.cpu_count()
-        with ProcessPoolExecutor(max_workers=num_processes_cpu // 2) as executor:
+        with ProcessPoolExecutor(max_workers=(num_processes_cpu // 4)) as executor:
             futures = []
-            for pkid, problems in enumerate(problems_pkg):
-                for problem in problems:
-                    for backend in backends:
-                        for strategy in strategys:
-                            future = executor.submit(process_layer, pkid, problem, backend, strategy)
-                            futures.append((future, pkid, problem, backend, strategy))
+            for backend in backends:
+                for shots in shotss:
+                    for pkid, problems in enumerate(problems_pkg):
+                        for problem in problems:
+                            for method in methods:
+                                print(f'{pkid, method, backend, shots} build')
+                                future = executor.submit(process_layer, problem, method, backend, shots)
+                                futures.append((future, pkid, method, backend, shots))
 
             start_time = time.perf_counter()
-            for future, pkid, problem, backend, strategy in futures:
-                num_layers = 1
+            for future, pkid, method, backend, shots in futures:
+                num_layers = 1 if method == 'commute' else 7
                 current_time = time.perf_counter()
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
                 try:
                     metrics = future.result(timeout=remaining_time)
                     diff.extend(metrics)
-                    print(f"Task for problem { pkid, backend, strategy} executed successfully.")
+                    print(f"Task for problem {pkid, method, backend, shots} num_layers {num_layers} executed successfully.")
                 except MemoryError:
                     for dict_term in evaluation_metrics:
                         diff.append('memory_error')
-                    print(f"Task for problem {pkid, backend, strategy} encountered a MemoryError.")
+                    print(f"Task for problem {pkid, method, backend, shots} num_layers {num_layers} encountered a MemoryError.")
                 except TimeoutError:
                     for dict_term in evaluation_metrics:
                         diff.append('timeout')
-                    print(f"Task for problem {pkid, backend, strategy} timed out.")
+                    print(f"Task for problem {pkid, method, backend, shots} num_layers {num_layers} timed out.")
                 finally:
-                    row = [pkid, backend, strategy] + diff
+                    row = [pkid, num_layers, method, backend, shots] + diff
                     writer.writerow(row)  # Write row immediately
                     num_complete += 1
                     if num_complete == len(futures):
