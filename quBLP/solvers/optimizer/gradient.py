@@ -1,4 +1,5 @@
 from quBLP.utils import iprint
+from quBLP.utils.gadget import get_main_file_info, create_directory_if_not_exists
 import numpy as np
 # from pennylane import numpy as np
 from tqdm import tqdm
@@ -29,7 +30,7 @@ def gradient_by_param_shift(params, cost_function):
         gradients[i] = (forward - backward)/(2*shift)
     return gradients
 
-def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2, num_consecutive_iter = 5, early_stopping_threshold=0.0001):
+def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2, num_consecutive_iter = 5, early_stopping_threshold=0.0001, opt_id = None):
     eps = 1e-8
     m = np.zeros(len(params))
     v = np.zeros(len(params))
@@ -61,7 +62,15 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
             else:
                 consecutive_no_improvement = 0
                 prev_cost = cost
-    #+
+
+    create_directory_if_not_exists('cost_loss')
+    import csv
+    with open('cost_loss/' + opt_id + '.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['method', 'loss'])
+        for row in costs_list:
+            writer.writerow([opt_id, row])
+
     iprint('====')
     iprint(costs_list)
     import matplotlib.pyplot as plt 
@@ -78,4 +87,4 @@ def adam_optimizer(params, cost_function, max_iter, learning_rate, beta1, beta2,
 def train_gradient(optimizer_option: OptimizerOption):
     # , requires_grad=False
     params = 2*np.pi*np.random.uniform(0, 1, optimizer_option.num_params)
-    return adam_optimizer(params, optimizer_option.circuit_cost_function, optimizer_option.max_iter, optimizer_option.learning_rate, optimizer_option.beta1, optimizer_option.beta2)
+    return adam_optimizer(params, optimizer_option.circuit_cost_function, optimizer_option.max_iter, optimizer_option.learning_rate, optimizer_option.beta1, optimizer_option.beta2, opt_id=optimizer_option.opt_id)

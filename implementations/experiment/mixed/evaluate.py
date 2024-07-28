@@ -30,10 +30,13 @@ with open(f"{new_path}.config", "w") as file:
         for problem in configs:
             file.write(f'{pkid}: {problem}\n')
 
-backends = ['AerSimulator']
-feedback = ['depth', 'culled_depth', 'transpile_time']
-strategys = [[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]]
-headers = ['pkid', 'backend', 'strategy'] + feedback
+backends = ['FakeKyiv', 'FakeTorino', 'FakeBrisbane']
+evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
+
+# feedback = ['depth', 'culled_depth', 'transpile_time']
+# strategys = [[1, 2], [1, 1], [1, 0], [0, 2], [0, 1], [0, 0]]
+strategys = [2, 1, 0]
+headers = ['pkid', 'backend', 'strategy'] + evaluation_metrics
 file_name = __file__.split("/")[-1].split(".")[0]
 
 def process_layer(pkid, prb : ConstrainedBinaryOptimization, backend, strategy):
@@ -41,32 +44,25 @@ def process_layer(pkid, prb : ConstrainedBinaryOptimization, backend, strategy):
     circuit_option = CircuitOption(
         num_layers=1,
         need_draw=False,
-        use_decompose=False,
-        use_serialization=False,
+        use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='linear',
         backend=backend,
-        feedback=feedback,
     )
     optimizer_option = OptimizerOption(
         params_optimization_method='COBYLA',
         max_iter=150,
-        # use_local_params=True,
-        # opt_id= '_'.join([str(x) for x in [file_name, pkid, backend, strategy]]),
+        use_local_params=True,
+        opt_id= '_'.join([str(x) for x in [file_name, pkid, backend, strategy]]),
     )
-    if strategy[0]:
-        circuit_option.use_serialization = True
-    if strategy[1]:
-        circuit_option.use_decompose = True
-    if strategy[2]:
-        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy[2])
+    if strategy:
+        result = prb.dichotomy_optimize(optimizer_option, circuit_option, strategy)
     else:
         result = prb.optimize(optimizer_option, circuit_option)
     return result
 
-
 if __name__ == '__main__':
-    set_timeout = 60 * 60 * 2 # Set timeout duration
+    set_timeout = 60 * 60 * 24 * 1.5 # Set timeout duration
     num_complete = 0
     script_path = os.path.abspath(__file__)
     new_path = script_path.replace('experiment', 'data')[:-3]
@@ -77,7 +73,7 @@ if __name__ == '__main__':
         writer.writerow(headers)  # Write headers once
 
         num_processes_cpu = os.cpu_count()
-        with ProcessPoolExecutor(max_workers=num_processes_cpu//2) as executor:
+        with ProcessPoolExecutor(max_workers=num_processes_cpu // 2) as executor:
             futures = []
             for pkid, problems in enumerate(problems_pkg):
                 for problem in problems:
@@ -93,16 +89,15 @@ if __name__ == '__main__':
                 remaining_time = max(set_timeout - (current_time - start_time), 0)
                 diff = []
                 try:
-                    result = future.result(timeout=remaining_time)
-                    for dict_term in feedback:
-                        diff.append(result[dict_term])
+                    metrics = future.result(timeout=remaining_time)
+                    diff.extend(metrics)
                     print(f"Task for problem { pkid, backend, strategy} executed successfully.")
                 except MemoryError:
-                    for dict_term in feedback:
+                    for dict_term in evaluation_metrics:
                         diff.append('memory_error')
                     print(f"Task for problem {pkid, backend, strategy} encountered a MemoryError.")
                 except TimeoutError:
-                    for dict_term in feedback:
+                    for dict_term in evaluation_metrics:
                         diff.append('timeout')
                     print(f"Task for problem {pkid, backend, strategy} timed out.")
                 finally:
