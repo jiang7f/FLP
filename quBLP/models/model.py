@@ -275,14 +275,18 @@ class ConstrainedBinaryOptimization(Model):
             elif self.opt_mtd == 'dichotomy':
                 linear_constraints = self.dctm_linear_constraints
             self._constraints_classify_cyclic_others = [[] for _ in range(2)]
+            seen_indices = set()
             for cstrt in linear_constraints:
                 if self.opt_mtd == 'standard':
                     assert len(cstrt) == 1 + len(self.variables)
                 # 二分法减少一个比特
                 elif self.opt_mtd == 'dichotomy':
                     assert len(cstrt) == 1 + len(self.variables) - self.num_frozen_qubit
-                if set(cstrt[:-1]).issubset({0, 1}):
+                
+                non_zero_indices = np.nonzero(cstrt[:-1])[0]
+                if (set(cstrt[:-1]).issubset({0, 1}) or set(cstrt[:-1]).issubset({0, -1})) and not any(index in seen_indices for index in non_zero_indices):
                     assert cstrt[-1] >= 0
+                    seen_indices.update(non_zero_indices)
                     self._constraints_classify_cyclic_others[0].append(cstrt)
                 else:
                     self._constraints_classify_cyclic_others[1].append(cstrt)
