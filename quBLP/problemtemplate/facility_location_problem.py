@@ -129,7 +129,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
         cost = 0
         for i in range(self.num_demands):
             for j in range(self.num_facilities):
-                cost += self.cost_dir * self.penalty_lambda * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
+                cost += self.cost_dir * self.penalty_lambda / len(self.linear_constraints) ** 2 * (variables[self.var_to_idex(self.Y[i][j])] + variables[self.var_to_idex(self.Z[i][j])] - variables[self.var_to_idex(self.X[j])])**2
         # cyclic 多包含一项非∑=x约束
         return self.get_objective_func_commute(variables) + self.cost_dir * cost
 
@@ -139,7 +139,7 @@ class FacilityLocationProblem(ConstrainedBinaryOptimization):
             t = 0
             for j in range(self.num_facilities):
                 t += variables[self.var_to_idex(self.Y[i][j])]
-            cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
+            cost += self.cost_dir * self.penalty_lambda / len(self.linear_constraints) ** 2 * (t - 1)**2
         # penalty 所有约束都惩罚施加
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
     

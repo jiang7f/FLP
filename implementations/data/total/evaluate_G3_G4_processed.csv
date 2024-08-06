@@ -1,0 +1,5 @@
+pkid,layers,variables,constraints,method,ARG,in_constraints_probs,best_solution_probs,iteration_count
+2,7,24,12,cyclic,1.716683342343286,0.2685546875,0.0,134.5
+2,7,24,12,penalty,2.9265296451629172,0.0244140625,0.0,123.25
+3,7,28,16,cyclic,1.426331259987571,0.0,0.0,121.33333333333333
+3,7,28,16,penalty,1.8962824932940594,0.0,0.0,145.0

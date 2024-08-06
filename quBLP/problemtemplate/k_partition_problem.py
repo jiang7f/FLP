@@ -89,7 +89,7 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
             t = 0
             for i in range(self.num_points):
                 t += variables[self.var_to_idex(self.X[i][j])]
-            cost += self.cost_dir * self.penalty_lambda * (t - self.block_allot[j])**2
+            cost += self.cost_dir * self.penalty_lambda / len(self.linear_constraints) ** 2 * (t - self.block_allot[j])**2
         return self.get_objective_func_commute(variables) + self.cost_dir * cost
 
     def get_objective_func_penalty(self, variables:Iterable):
@@ -98,7 +98,7 @@ class KPartitionProblem(ConstrainedBinaryOptimization):
             t = 0
             for j in range(self.num_block):
                 t += variables[self.var_to_idex(self.X[i][j])]
-            cost += self.cost_dir * self.penalty_lambda * (t - 1)**2
+            cost += self.cost_dir * self.penalty_lambda / len(self.linear_constraints) ** 2 * (t - 1)**2
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
 
     def get_best_cost(self):

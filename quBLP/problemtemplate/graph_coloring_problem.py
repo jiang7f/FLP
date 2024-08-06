@@ -23,7 +23,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         - $x_{a_kj} + x_{b_kj} - y_{jk} = 0$ for all pair of adjacent graphs $(a_k, b_k), k = 1, \cdots, p$ and $j = 1, \cdots, n$
         - $x_{ij}, y_{jk} \in\{0,1\} $
     """
-    def __init__(self, num_graphs: int, pairs_adjacent: List[Tuple[int, int]], fastsolve=False) -> None:
+    def __init__(self, num_graphs: int, pairs_adjacent: List[Tuple[int, int]], cost_color: List[int], fastsolve=False) -> None:
         """ 
         Args:
             num_graphs (int): number of graphs
@@ -38,6 +38,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         ## 相邻图对
         self.pairs_adjacent = pairs_adjacent
         self.num_adjacent = len(pairs_adjacent)
+        self.cost_color = cost_color
         # 最坏情况每个图一个颜色
         self.num_colors = num_graphs
         self.num_variables = self.num_graphs * self.num_colors + self.num_colors * self.num_adjacent
@@ -50,6 +51,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
         self.feasible_solution = self.get_feasible_solution()
         # 加目标函数
         self.add_gcp_objective()
+        # self.zoom = 25
         pass
 
 
@@ -64,7 +66,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
                     term_list = []
                     for index in combo:
                         term_list.append(self.var_to_idex(self.X[index][j]))
-                    self.add_nonlinear_objective(term_list, self.cost_dir * -theta)
+                    self.add_nonlinear_objective(term_list, self.cost_dir * -theta * self.cost_color[j])
     
     @property
     def linear_constraints(self):
@@ -109,14 +111,14 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             t = 1
             for i in range(self.num_graphs):
                 t *= 1 - variables[self.var_to_idex(self.X[i][j])]
-            cost += 1 - t
+            cost += (1 - t) * self.cost_color[j]
         return self.cost_dir * cost
     
     def get_objective_func_cyclic(self, variables:Iterable):
         cost = 0
         for j in range(self.num_colors):
             for k, (u, v) in enumerate(self.pairs_adjacent):
-                cost += self.penalty_lambda * (variables[self.var_to_idex(self.X[u][j])] + variables[self.var_to_idex(self.X[v][j])] - variables[self.var_to_idex(self.Y[k][j])])**2
+                cost += self.penalty_lambda / len(self.linear_constraints) ** 2 * (variables[self.var_to_idex(self.X[u][j])] + variables[self.var_to_idex(self.X[v][j])] - variables[self.var_to_idex(self.Y[k][j])])**2
         # cyclic 多包含一项∑=x
         return self.get_objective_func_commute(variables) + self.cost_dir * cost
     
@@ -126,7 +128,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             t = 0
             for j in range(self.num_colors):
                 t += variables[self.var_to_idex(self.X[i][j])]
-            cost += self.penalty_lambda * (t - 1)**2
+            cost += self.penalty_lambda / len(self.linear_constraints) ** 2 * (t - 1)**2
         # penalty 所有约束都惩罚施加
         return self.get_objective_func_cyclic(variables) + self.cost_dir * cost
 
@@ -139,7 +141,7 @@ class GraphColoringProblem(ConstrainedBinaryOptimization):
             Y = model.addVars(self.num_colors, vtype=gp.GRB.BINARY, name="Y")
             Z = model.addVars(self.num_adjacent, self.num_colors, vtype=gp.GRB.BINARY, name="Z")
             
-            model.setObjective(gp.quicksum(Y[c] for c in range(self.num_colors)), gp.GRB.MINIMIZE)
+            model.setObjective(gp.quicksum(Y[c] * self.cost_color[c] for c in range(self.num_colors)), gp.GRB.MINIMIZE)
             
             model.addConstrs((gp.quicksum(X[v, i] for i in range(self.num_colors)) == 1 for v in range(self.num_graphs)), "OneColorPerGraph")
             

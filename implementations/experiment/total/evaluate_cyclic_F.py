@@ -12,6 +12,7 @@ from quBLP.models import CircuitOption, OptimizerOption
 from quBLP.analysis import generater
 import numpy as np
 
+
 np.random.seed(0x7f)
 
 script_path = os.path.abspath(__file__)
@@ -21,9 +22,9 @@ optimizer_option = OptimizerOption(
     params_optimization_method='COBYLA',
     max_iter=150
 )
-flp_problems_pkg, flp_configs_pkg = generater.generate_flp(150, [(1, 2), (3, 2), (3, 3), (3, 4)], 1, 20)
-gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(150, [(3, 1), (3, 2), (4, 2), (4, 3)])
-kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(150, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
+flp_problems_pkg, flp_configs_pkg = generater.generate_flp(4, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+gcp_problems_pkg, gcp_configs_pkg = generater.generate_gcp(0, [(3, 1), (3, 2), (4, 2), (4, 3)])
+kpp_problems_pkg, kpp_configs_pkg = generater.generate_kpp(0, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
 
 problems_pkg = list(itertools.chain(enumerate(flp_problems_pkg), enumerate(gcp_problems_pkg), enumerate(kpp_problems_pkg)))
 
@@ -33,26 +34,22 @@ with open(f"{new_path}.config", "w") as file:
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')
 
-# layers = range(1, 8)
-methods = ['commute']
+layers = range(7, 8)
+methods = ['cyclic']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
 headers = ['pkid', 'pbid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
 
-def process_layer(prb, method):
+def process_layer(prb, num_layers, method):
     prb.set_algorithm_optimization_method(method, 15)
     circuit_option = CircuitOption(
-        num_layers=1 if method == 'commute' else 7,
+        num_layers=num_layers,
         need_draw=False,
         use_decompose=True,
         circuit_type='qiskit',
         mcx_mode='constant',
         backend='ddsim' if method == 'commute' else 'AerSimulator-GPU', # 'FakeQuebec' # 'AerSimulator'
     )
-    if method == 'commute':
-        ARG, in_constraints_probs, best_solution_probs, iteration_count = prb.dichotomy_optimize(optimizer_option, circuit_option, 1)
-    else:
-        ARG, in_constraints_probs, best_solution_probs, iteration_count = prb.optimize(optimizer_option, circuit_option)
-    # ARG, in_constraints_probs, best_solution_probs, iteration_count = prb.optimize(optimizer_option, circuit_option)
+    ARG, in_constraints_probs, best_solution_probs, iteration_count = prb.optimize(optimizer_option, circuit_option)
     return [ARG, in_constraints_probs, best_solution_probs, iteration_count]
 
 if __name__ == '__main__':
@@ -71,18 +68,17 @@ if __name__ == '__main__':
                 if method == 'commute':
                     num_processes = num_processes_cpu // 2
                 else:
-                    num_processes = 2**(5 - diff_level)
+                    num_processes = 2**(4 - diff_level)
                 with ProcessPoolExecutor(max_workers=num_processes) as executor:
                     futures = []
-                    # for layer in layers: 
-                    for pbid, prb in enumerate(problems):
-                        print(f'{pkid}-{pbid}, {method} build')
-                        future = executor.submit(process_layer, prb, method)
-                        futures.append((future, prb, pkid, pbid, method))
+                    for layer in layers: 
+                        for pbid, prb in enumerate(problems):
+                            print(f'{pkid}-{pbid}, {layer}, {method} build')
+                            future = executor.submit(process_layer, prb, layer, method)
+                            futures.append((future, prb, pkid, pbid, layer, method))
 
                     start_time = time.perf_counter()
-                    for future, prb, pkid, pbid, method in futures:
-                        layer = 1 if method == 'commute' else 7
+                    for future, prb, pkid, pbid, layer, method in futures:
                         current_time = time.perf_counter()
                         remaining_time = max(set_timeout - (current_time - start_time), 0)
                         diff = []

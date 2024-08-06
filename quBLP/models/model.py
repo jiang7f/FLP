@@ -367,30 +367,24 @@ class ConstrainedBinaryOptimization(Model):
         iprint(f'best_cost: {best_cost}')
         mean_cost = 0
         best_solution_probs = 0
-        for c, p in zip(collapse_state, probs):
-            pcost = self.cost_dir * self.objective_penalty(c)
-            if p >= 1e-3:
-                iprint(f'{c}: {pcost} - {p}')
-            if pcost == best_cost:
-                best_solution_probs += p
-            mean_cost += pcost * p
+        in_constraints_probs = 0
+        for cs, pr in zip(self.collapse_state, self.probs):
+            pcost = self.cost_dir * self.objective_penalty(cs)
+            if pr >= 1e-3:
+                iprint(f'{cs}: {pcost} - {pr}')
+            if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
+                in_constraints_probs += pr
+                if pcost == best_cost:
+                    best_solution_probs += pr
+            mean_cost += pcost * pr
         best_solution_probs *= 100
-
-        #+ 输出最大概率解
+        in_constraints_probs *= 100
         maxprobidex = np.argmax(probs)
         max_prob_solution = collapse_state[maxprobidex]
         cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
         iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
         iprint(f'best_solution_probs: {best_solution_probs}')
         iprint(f"mean_cost: {mean_cost}")
-        in_constraints_probs = 0
-        for cs, pr in zip(self.collapse_state, self.probs):
-            try:
-                if all([np.dot(cs,constr[:-1]) == constr[-1] for constr in self.linear_constraints]):
-                    in_constraints_probs += pr
-            except:
-                print(self.linear_constraints, cs)
-        in_constraints_probs *= 100
         iprint(f'in_constraint_probs: {in_constraints_probs}')
         ARG = abs((mean_cost - best_cost) / best_cost)
         iprint(f'ARG: {ARG}')
@@ -454,11 +448,12 @@ class ConstrainedBinaryOptimization(Model):
             self.frozen_state_list = [int(j) for j in list(bin(i)[2:].zfill(num_frozen_qubit))]
             # 调整约束矩阵 1 修改常数列(c - frozen_state * frozen_idx), 2 剔除 frozen 列
             dctm_linear_constraints = self.linear_constraints.copy()
-            iprint(f'self.linear_constraints:\n {self.linear_constraints}')
+            # iprint(f'self.linear_constraints:\n {self.linear_constraints}')
             for idx, state in zip(self.frozen_idx_list, self.frozen_state_list):
                 dctm_linear_constraints[:,-1] -= dctm_linear_constraints[:, idx] * state
+            # print("old\n", self.linear_constraints)
             self.dctm_linear_constraints = np.delete(dctm_linear_constraints, self.frozen_idx_list, axis=1)
-            iprint(f'self.dichotomy_linear_constraints:\n {self.dctm_linear_constraints}')
+            # iprint(f'self.dichotomy_linear_constraints:\n {self.dctm_linear_constraints}')
             dctm_feasible_solution = find_feasible_solution_with_gurobi(self.dctm_linear_constraints)
             if dctm_feasible_solution is None:
                 continue
@@ -494,12 +489,12 @@ class ConstrainedBinaryOptimization(Model):
                     process_list.append(dimension_list)
                 return process_list
             circuit_option.objective_func_term_list = process_objective_term_list(self.objective_func_term_list, self.frozen_idx_list, self.frozen_state_list)
-            iprint('term_list', circuit_option.objective_func_term_list)
+            # iprint('term_list', circuit_option.objective_func_term_list)
             circuit_option.constraints_for_cyclic = self.constraints_classify_cyclic_others[0]
             circuit_option.constraints_for_others = self.constraints_classify_cyclic_others[1]
             circuit_option.Hd_bits_list = to_row_echelon_form(self.dctm_driver_bitstr)
-            iprint(f'dctm_driver_bitstr:\n{self.dctm_driver_bitstr}') #-
-            iprint(f'Hd_bits_list:\n{circuit_option.Hd_bits_list}') #-
+            # iprint(f'dctm_driver_bitstr:\n{self.dctm_driver_bitstr}') #-
+            # iprint(f'Hd_bits_list:\n{circuit_option.Hd_bits_list}') #-
 
             def dctm_objective_func_map(method: str):
                 def dctm_objective_func(variables: Iterable):
@@ -543,27 +538,24 @@ class ConstrainedBinaryOptimization(Model):
             iprint(f'best_cost: {best_cost}')
             mean_cost = 0
             best_solution_probs = 0
-            for c, p in zip(collapse_state, probs):
-                pcost = self.cost_dir * dctm_objective_func_map('penalty')(c)
-                if p >= 1e-3:
-                    iprint(f'{c}: {pcost} - {p}')
-                if pcost == best_cost:
-                    best_solution_probs += p
-                mean_cost += pcost * p
+            in_constraints_probs = 0
+            for cs, pr in zip(self.collapse_state, self.probs):
+                pcost = self.cost_dir * dctm_objective_func_map('penalty')(cs)
+                if pr >= 1e-3:
+                    iprint(f'{cs}: {pcost} - {pr}')
+                if all([np.dot(cs, constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]):
+                    in_constraints_probs += pr
+                    if pcost == best_cost:
+                        best_solution_probs += pr
+                mean_cost += pcost * pr
             best_solution_probs *= 100
-
-            #+ 输出最大概率解
+            in_constraints_probs *= 100
             maxprobidex = np.argmax(probs)
             max_prob_solution = collapse_state[maxprobidex]
             cost = self.cost_dir * circuit_option.objective_func(max_prob_solution)
             iprint(f"max_prob_solution: {max_prob_solution}, cost: {cost}, max_prob: {probs[maxprobidex]:.2%}") #-
             iprint(f'best_solution_probs: {best_solution_probs}')
             iprint(f"mean_cost: {mean_cost}")
-            in_constraints_probs = 0
-            for cs, pr in zip(self.collapse_state, self.probs):
-                if all([np.dot(cs, constr[:-1]) == constr[-1] for constr in self.dctm_linear_constraints]):
-                    in_constraints_probs += pr
-            in_constraints_probs *= 100
             iprint(f'in_constraint_probs: {in_constraints_probs}')
             ARG = abs((mean_cost - best_cost) / best_cost)
             iprint(f'ARG: {ARG}')

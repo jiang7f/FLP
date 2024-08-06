@@ -6,7 +6,7 @@ from quBLP.problemtemplate import GraphColoringProblem as GCP
 from quBLP.problemtemplate import KPartitionProblem as KPP
 from quBLP.problemtemplate import One_Hdi as OH
 
-random.seed(0x7fff)
+random.seed(0x7f)
 
 def generate_flp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
     def generate_random_flp(num_problems, idx_scale, m, n, min_value=1, max_value=20):
@@ -30,29 +30,29 @@ def generate_flp(num_problems_per_scale, scale_list, min_value=1, max_value=20):
     
     return problem_list, config_list
 
-def generate_gcp(max_problems_per_scale, scale_list):
-    def generate_all_gcp(idx_scale, num_nodes, num_edges, max_problems):
+def generate_gcp(max_problems_per_scale, scale_list, min_value=1, max_value=20):
+    def generate_all_gcp(idx_scale, num_nodes, num_edges, max_problems, min_value, max_value):
         problems = []
         configs = []
         all_edges = list(itertools.combinations(range(num_nodes), 2))
         all_combinations = list(itertools.combinations(all_edges, num_edges))
         
-        if len(all_combinations) <= max_problems:
-            selected_combinations = all_combinations
-        else:
-            selected_combinations = random.sample(all_combinations, max_problems)
-        
+        # 重复并截断到max_problems长度
+        times_to_repeat = (max_problems // len(all_combinations)) + 1
+        selected_combinations = (all_combinations * times_to_repeat)[:max_problems]
+            
         for edges_comb in selected_combinations:
-            problem = GCP(num_nodes, edges_comb)
+            cost_color = [random.randint(min_value, max_value) for _ in range(num_nodes)]
+            problem = GCP(num_nodes, edges_comb, cost_color)
             if all(x in [-1, 0, 1]  for row in problem.driver_bitstr for x in row) : 
                 problems.append(problem)
-                configs.append((idx_scale, problem.num_variables, num_nodes, num_edges, edges_comb))
+                configs.append((idx_scale, problem.num_variables, num_nodes, num_edges, edges_comb, cost_color))
         return problems, configs
 
     problem_list = []
     config_list = []
     for idx_scale, (num_nodes, num_edges) in enumerate(scale_list):
-        problems, configs = generate_all_gcp(idx_scale, num_nodes, num_edges, max_problems_per_scale)
+        problems, configs = generate_all_gcp(idx_scale, num_nodes, num_edges, max_problems_per_scale, min_value, max_value)
         problem_list.append(problems)
         config_list.append(configs)
 
