@@ -14,7 +14,7 @@ optimizer_option = OptimizerOption(
     opt_id=None,
 )
 circuit_option = CircuitOption(
-    num_layers=1,
+    num_layers=10,
     need_draw=False,
     use_decompose=True,
     mcx_mode='constant',
@@ -29,8 +29,8 @@ methods = ['penalty', 'cyclic', 'commute', 'HEA']
 raw_depth = [[] for _ in range(len(methods))]
 depth_without_one_qubit_gate = [[] for _ in range(len(methods))]
 # latency = [[] for _ in range(len(methods))]
-flp_problems, flp_configs = generater.generate_flp(0, [(1, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
-gcp_problems, gcp_configs = generater.generate_gcp(1, [(3, 1), (3, 2), (4, 2), (4, 3)])
+flp_problems, flp_configs = generater.generate_flp(1, [(2, 2), (2, 3), (3, 3), (3, 4)], 1, 20)
+gcp_problems, gcp_configs = generater.generate_gcp(0, [(3, 1), (3, 2), (4, 2), (4, 3)])
 # kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 # kpp_problems, kpp_configs = generater.generate_kpp(1, [(4, [2, 2], 3), (6, [2, 2, 2], 5), (8, [2, 2, 4], 7), (9, [3, 3, 3], 8)], 1, 20)
 kpp_problems, kpp_configs = generater.generate_kpp(0, [(4, 2, 3), (6, 3, 5), (8, 3, 7), (9, 3, 8)], 1, 20)
@@ -46,10 +46,10 @@ problems = [prb for problems in problems_pkg for prb in problems]
 #     for config in configs:
 #         print(*config)
 #     print()
-prb : ConstrainedBinaryOptimization = problems[1]
-prb.set_algorithm_optimization_method('commute', 400)
+prb : ConstrainedBinaryOptimization = problems[0]
+prb.set_algorithm_optimization_method('penalty', 150)
 # print(prb.get_best_cost())
-# print(flp.get_solution_bitstr())
+# print(flp.get_solution_bitstr())`
 # exit()
 print(prb.optimize(optimizer_option, circuit_option))
 # print(prb.dichotomy_optimize(optimizer_option, circuit_option, num_frozen_qubit=1))

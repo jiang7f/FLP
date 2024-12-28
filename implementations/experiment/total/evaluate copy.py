@@ -33,7 +33,7 @@ with open(f"{new_path}.config", "w") as file:
         for pbid, problem in enumerate(configs):
             file.write(f'{pkid}-{pbid}: {problem}\n')
 
-layers = range(1, 8)
+# layers = range(1, 8)
 methods = ['commute']
 evaluation_metrics = ['ARG', 'in_constraints_probs', 'best_solution_probs', 'iteration_count']
 headers = ['pkid', 'pbid', 'layers', "variables", 'constraints', 'method'] + evaluation_metrics
